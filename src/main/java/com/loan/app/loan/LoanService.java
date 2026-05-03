@@ -207,7 +207,7 @@ public class LoanService {
     }
 
     public void create(LoanForm form) {
-        validate(form);
+        validate(form, false);
         OffsetDateTime now = OffsetDateTime.now();
 
         jdbcClient.sql("""
@@ -239,8 +239,8 @@ public class LoanService {
             .param("loanType", form.loanType().trim())
             .param("durationMonths", form.durationMonths())
             .param("gracePeriodDays", form.gracePeriodDays())
-            .param("loanStatus", form.loanStatus().trim())
-            .param("loanStatusComment", normalizeOptional(form.loanStatusComment()))
+            .param("loanStatus", "Initiation")
+            .param("loanStatusComment", null)
             .param("loanConditions", normalizeOptional(form.loanConditions()))
             .param("approvedAmount", form.approvedAmount())
             .param("disbursedAmount", form.disbursedAmount())
@@ -250,7 +250,7 @@ public class LoanService {
     }
 
     public void update(long id, LoanForm form) {
-        validate(form);
+        validate(form, true);
 
         jdbcClient.sql("""
             UPDATE loans
@@ -301,7 +301,7 @@ public class LoanService {
             .update();
     }
 
-    private void validate(LoanForm form) {
+    private void validate(LoanForm form, boolean requireStatus) {
         requireText(form.projectDescription(), "Project Description is required.");
         requireText(form.applicantFirstName(), "Applicant First Name is required.");
         requireText(form.applicantSurname(), "Applicant Surname is required.");
@@ -318,7 +318,9 @@ public class LoanService {
         if (form.gracePeriodDays() == null || !ALLOWED_GRACE_PERIOD_DAYS.contains(form.gracePeriodDays())) {
             throw new IllegalArgumentException("Grace Period must be one of: 30, 60, 90, 120, 160, 180, 210.");
         }
-        requireText(form.loanStatus(), "Loan Status is required.");
+        if (requireStatus) {
+            requireText(form.loanStatus(), "Loan Status is required.");
+        }
 
         if (form.interestRate() == null || form.interestRate().compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalArgumentException("Interest Rate must be zero or greater.");

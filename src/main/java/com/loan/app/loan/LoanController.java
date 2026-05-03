@@ -46,6 +46,7 @@ public class LoanController {
     private static final List<Integer> LOAN_DURATIONS = List.of(12, 36);
     private static final List<Integer> GRACE_PERIOD_DAYS = List.of(30, 60, 90, 120, 160, 180, 210);
     private static final List<String> LOAN_STATUSES = List.of(
+        "Initiation",
         "Approved",
         "Withdrawn",
         "Declined"
@@ -142,8 +143,6 @@ public class LoanController {
         @RequestParam String loanType,
         @RequestParam Integer durationMonths,
         @RequestParam Integer gracePeriodDays,
-        @RequestParam String loanStatus,
-        @RequestParam(required = false) String loanStatusComment,
         @RequestParam(required = false) String loanConditions,
         @RequestParam BigDecimal approvedAmount,
         @RequestParam BigDecimal disbursedAmount,
@@ -153,7 +152,7 @@ public class LoanController {
             loanService.create(new LoanForm(
                 projectDescription, applicantFirstName, applicantSurname, applicantIdNumber,
                 contactNumber, region, townVillage, membershipStatus, gender, conditionsPrecedent,
-                interestRate, loanType, durationMonths, gracePeriodDays, loanStatus, loanStatusComment, loanConditions,
+                interestRate, loanType, durationMonths, gracePeriodDays, "Initiation", null, loanConditions,
                 approvedAmount, disbursedAmount
             ));
             redirectAttributes.addFlashAttribute("successMessage", "Loan created.");
