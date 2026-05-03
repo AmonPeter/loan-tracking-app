@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/sql/001-sample.sql
+  - include:
+      file: db/changelog/sql/002-users.sql
+  - include:
+      file: db/changelog/sql/003-user-example-admin.sql
+  - include:
+      file: db/changelog/sql/004-loans.sql
