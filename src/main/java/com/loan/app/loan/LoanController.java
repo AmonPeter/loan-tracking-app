@@ -1,6 +1,7 @@
 package com.loan.app.loan;
 
 import java.math.BigDecimal;
+import java.time.Year;
 import java.util.List;
 import java.util.stream.IntStream;
 
@@ -93,6 +94,22 @@ public class LoanController {
         return LOAN_STATUSES;
     }
 
+    @ModelAttribute("repaymentStartMonths")
+    public List<Integer> repaymentStartMonths() {
+        return IntStream.rangeClosed(1, 12).boxed().toList();
+    }
+
+    @ModelAttribute("repaymentStartYears")
+    public List<Integer> repaymentStartYears() {
+        int currentYear = Year.now().getValue();
+        return IntStream.rangeClosed(currentYear, currentYear + 15).boxed().toList();
+    }
+
+    @ModelAttribute("repaymentStartDates")
+    public List<Integer> repaymentStartDates() {
+        return List.of(1, 15);
+    }
+
     @ModelAttribute("membershipOptions")
     public List<String> membershipOptions() {
         return MEMBERSHIP_OPTIONS;
@@ -147,7 +164,7 @@ public class LoanController {
                 projectDescription, applicantFirstName, applicantSurname, applicantIdNumber,
                 contactNumber, region, townVillage, membershipStatus, gender, null,
                 BigDecimal.ZERO, loanType, durationMonths, 30, "Initiation", null, null,
-                BigDecimal.ZERO, BigDecimal.ZERO
+                BigDecimal.ZERO, BigDecimal.ZERO, null, null, null
             ));
             redirectAttributes.addFlashAttribute("successMessage", "Loan created.");
         } catch (IllegalArgumentException | DataAccessException ex) {
@@ -179,6 +196,9 @@ public class LoanController {
         @RequestParam(required = false) String loanConditions,
         @RequestParam BigDecimal approvedAmount,
         @RequestParam BigDecimal disbursedAmount,
+        @RequestParam(required = false) Integer repaymentStartMonth,
+        @RequestParam(required = false) Integer repaymentStartYear,
+        @RequestParam(required = false) Integer repaymentStartDate,
         RedirectAttributes redirectAttributes
     ) {
         try {
@@ -186,7 +206,7 @@ public class LoanController {
                 projectDescription, applicantFirstName, applicantSurname, applicantIdNumber,
                 contactNumber, region, townVillage, membershipStatus, gender, conditionsPrecedent,
                 interestRate, loanType, durationMonths, gracePeriodDays, loanStatus, loanStatusComment, loanConditions,
-                approvedAmount, disbursedAmount
+                approvedAmount, disbursedAmount, repaymentStartMonth, repaymentStartYear, repaymentStartDate
             ));
             redirectAttributes.addFlashAttribute("successMessage", "Loan updated.");
         } catch (IllegalArgumentException | DataAccessException ex) {

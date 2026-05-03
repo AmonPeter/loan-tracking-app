@@ -44,7 +44,10 @@ public class LoanService {
                 loan_status_comment AS loanStatusComment,
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
-                disbursed_amount AS disbursedAmount
+                disbursed_amount AS disbursedAmount,
+                repayment_start_month AS repaymentStartMonth,
+                repayment_start_year AS repaymentStartYear,
+                repayment_start_date AS repaymentStartDate
             FROM loans
             ORDER BY created_at DESC
             """)
@@ -84,7 +87,10 @@ public class LoanService {
                     loan_status_comment AS loanStatusComment,
                     loan_conditions AS loanConditions,
                     approved_amount AS approvedAmount,
-                    disbursed_amount AS disbursedAmount
+                    disbursed_amount AS disbursedAmount,
+                    repayment_start_month AS repaymentStartMonth,
+                    repayment_start_year AS repaymentStartYear,
+                    repayment_start_date AS repaymentStartDate
                 FROM loans
                 WHERE lower(applicant_first_name) LIKE :query
                    OR lower(applicant_surname) LIKE :query
@@ -119,7 +125,10 @@ public class LoanService {
                 loan_status_comment AS loanStatusComment,
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
-                disbursed_amount AS disbursedAmount
+                disbursed_amount AS disbursedAmount,
+                repayment_start_month AS repaymentStartMonth,
+                repayment_start_year AS repaymentStartYear,
+                repayment_start_date AS repaymentStartDate
             FROM loans
             ORDER BY created_at DESC
             LIMIT :limit OFFSET :offset
@@ -216,7 +225,10 @@ public class LoanService {
                 loan_status_comment AS loanStatusComment,
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
-                disbursed_amount AS disbursedAmount
+                disbursed_amount AS disbursedAmount,
+                repayment_start_month AS repaymentStartMonth,
+                repayment_start_year AS repaymentStartYear,
+                repayment_start_date AS repaymentStartDate
             FROM loans
             WHERE id = :id
             """)
@@ -235,13 +247,13 @@ public class LoanService {
                 applicant_id_number, contact_number, region, town_village,
                 membership_status, gender, conditions_precedent, interest_rate,
                 loan_type, duration_months, grace_period_days, loan_status, loan_status_comment, loan_conditions,
-                approved_amount, disbursed_amount, created_at, updated_at
+                approved_amount, disbursed_amount, repayment_start_month, repayment_start_year, repayment_start_date, created_at, updated_at
             ) VALUES (
                 :projectDescription, :applicantFirstName, :applicantSurname,
                 :applicantIdNumber, :contactNumber, :region, :townVillage,
                 :membershipStatus, :gender, :conditionsPrecedent, :interestRate,
                 :loanType, :durationMonths, :gracePeriodDays, :loanStatus, :loanStatusComment, :loanConditions,
-                :approvedAmount, :disbursedAmount, :createdAt, :updatedAt
+                :approvedAmount, :disbursedAmount, :repaymentStartMonth, :repaymentStartYear, :repaymentStartDate, :createdAt, :updatedAt
             )
             """)
             .param("projectDescription", form.projectDescription().trim())
@@ -263,6 +275,9 @@ public class LoanService {
             .param("loanConditions", normalizeOptional(form.loanConditions()))
             .param("approvedAmount", form.approvedAmount())
             .param("disbursedAmount", form.disbursedAmount())
+            .param("repaymentStartMonth", form.repaymentStartMonth())
+            .param("repaymentStartYear", form.repaymentStartYear())
+            .param("repaymentStartDate", form.repaymentStartDate())
             .param("createdAt", now)
             .param("updatedAt", now)
             .update();
@@ -293,6 +308,9 @@ public class LoanService {
                 loan_conditions = :loanConditions,
                 approved_amount = :approvedAmount,
                 disbursed_amount = :disbursedAmount,
+                repayment_start_month = :repaymentStartMonth,
+                repayment_start_year = :repaymentStartYear,
+                repayment_start_date = :repaymentStartDate,
                 updated_at = :updatedAt
             WHERE id = :id
             """)
@@ -316,6 +334,9 @@ public class LoanService {
             .param("loanConditions", normalizeOptional(form.loanConditions()))
             .param("approvedAmount", form.approvedAmount())
             .param("disbursedAmount", form.disbursedAmount())
+            .param("repaymentStartMonth", form.repaymentStartMonth())
+            .param("repaymentStartYear", form.repaymentStartYear())
+            .param("repaymentStartDate", form.repaymentStartDate())
             .param("updatedAt", OffsetDateTime.now())
             .update();
     }
@@ -355,6 +376,18 @@ public class LoanService {
 
         if (form.disbursedAmount().compareTo(form.approvedAmount()) > 0) {
             throw new IllegalArgumentException("Disbursed Amount cannot exceed Approved Amount.");
+        }
+
+        if ("Approved".equalsIgnoreCase(form.loanStatus())) {
+            if (form.repaymentStartMonth() == null || form.repaymentStartMonth() < 1 || form.repaymentStartMonth() > 12) {
+                throw new IllegalArgumentException("Repayment Start Month is required when loan status is Approved.");
+            }
+            if (form.repaymentStartYear() == null || form.repaymentStartYear() < 2000 || form.repaymentStartYear() > 2200) {
+                throw new IllegalArgumentException("Repayment Start Year is required when loan status is Approved.");
+            }
+            if (form.repaymentStartDate() == null || (form.repaymentStartDate() != 1 && form.repaymentStartDate() != 15)) {
+                throw new IllegalArgumentException("Repayment Start Date must be either 1st or 15th when loan status is Approved.");
+            }
         }
     }
 

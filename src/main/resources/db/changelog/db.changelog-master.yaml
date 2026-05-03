@@ -13,3 +13,7 @@ databaseChangeLog:
       file: db/changelog/sql/006-loans-duration.sql
   - include:
       file: db/changelog/sql/007-loans-grace-period.sql
+  - include:
+      file: db/changelog/sql/008-loans-repayment-start.sql
+  - include:
+      file: db/changelog/sql/009-loans-repayment-start-date.sql

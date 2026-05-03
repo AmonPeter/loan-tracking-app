@@ -132,8 +132,29 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label">Loan Status</label>
-                    <select name="loanStatus" class="form-select" required>
+                    <select name="loanStatus" class="form-select" data-loan-status required>
                         <option th:each="loanStatus : ${loanStatuses}" th:value="${loanStatus}" th:text="${loanStatus}" th:selected="${loan.loanStatus == loanStatus}"></option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Repayment Start Month</label>
+                    <select name="repaymentStartMonth" class="form-select" data-repayment-month>
+                        <option value="">Select month</option>
+                        <option th:each="month : ${repaymentStartMonths}" th:value="${month}" th:text="${month}" th:selected="${loan.repaymentStartMonth == month}"></option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Repayment Start Year</label>
+                    <select name="repaymentStartYear" class="form-select" data-repayment-year>
+                        <option value="">Select year</option>
+                        <option th:each="year : ${repaymentStartYears}" th:value="${year}" th:text="${year}" th:selected="${loan.repaymentStartYear == year}"></option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Repayment Start Date</label>
+                    <select name="repaymentStartDate" class="form-select" data-repayment-date>
+                        <option value="">Select date</option>
+                        <option th:each="date : ${repaymentStartDates}" th:value="${date}" th:text="${date == 1 ? '1st' : '15th'}" th:selected="${loan.repaymentStartDate == date}"></option>
                     </select>
                 </div>
                 <div class="col-12 col-md-6"><label class="form-label">Loan Status Comment</label><textarea name="loanStatusComment" class="form-control" rows="2" th:text="${loan.loanStatusComment}"></textarea></div>
@@ -169,6 +190,38 @@
     }
 
     wireAmountValidation(document);
+
+    function wireRepaymentStartValidation(root) {
+        const status = root.querySelector("[data-loan-status]");
+        const month = root.querySelector("[data-repayment-month]");
+        const year = root.querySelector("[data-repayment-year]");
+        const date = root.querySelector("[data-repayment-date]");
+        if (!status || !month || !year || !date) return;
+
+        const sync = () => {
+            const isApproved = status.value === "Approved";
+            month.required = isApproved;
+            year.required = isApproved;
+            date.required = isApproved;
+            if (!isApproved) {
+                month.setCustomValidity("");
+                year.setCustomValidity("");
+                date.setCustomValidity("");
+                return;
+            }
+            month.setCustomValidity(month.value ? "" : "Select repayment start month.");
+            year.setCustomValidity(year.value ? "" : "Select repayment start year.");
+            date.setCustomValidity(date.value ? "" : "Select repayment start date.");
+        };
+
+        status.addEventListener("change", sync);
+        month.addEventListener("change", sync);
+        year.addEventListener("change", sync);
+        date.addEventListener("change", sync);
+        sync();
+    }
+
+    wireRepaymentStartValidation(document);
 </script>
 </body>
 </html>

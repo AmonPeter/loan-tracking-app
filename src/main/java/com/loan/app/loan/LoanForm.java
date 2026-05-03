@@ -21,6 +21,9 @@ public record LoanForm(
     String loanStatusComment,
     String loanConditions,
     BigDecimal approvedAmount,
-    BigDecimal disbursedAmount
+    BigDecimal disbursedAmount,
+    Integer repaymentStartMonth,
+    Integer repaymentStartYear,
+    Integer repaymentStartDate
 ) {
 }
