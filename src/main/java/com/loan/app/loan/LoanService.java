@@ -2,8 +2,10 @@ package com.loan.app.loan;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.Optional;
 
@@ -152,6 +154,23 @@ public class LoanService {
             .query(BigDecimal.class)
             .single();
         return total == null ? BigDecimal.ZERO : total;
+    }
+
+    public Map<String, Long> totalLoansByStatus() {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        jdbcClient.sql("""
+            SELECT loan_status AS loanStatus, COUNT(*) AS total
+            FROM loans
+            GROUP BY loan_status
+            """)
+            .query()
+            .listOfRows()
+            .forEach(row -> {
+                String status = (String) row.get("loanStatus");
+                Number total = (Number) row.get("total");
+                counts.put(status, total == null ? 0L : total.longValue());
+            });
+        return counts;
     }
 
     public long countAll(String searchTerm) {

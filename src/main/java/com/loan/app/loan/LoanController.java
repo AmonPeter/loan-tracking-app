@@ -138,22 +138,16 @@ public class LoanController {
         @RequestParam String townVillage,
         @RequestParam String membershipStatus,
         @RequestParam String gender,
-        @RequestParam(required = false) String conditionsPrecedent,
-        @RequestParam BigDecimal interestRate,
         @RequestParam String loanType,
         @RequestParam Integer durationMonths,
-        @RequestParam Integer gracePeriodDays,
-        @RequestParam(required = false) String loanConditions,
-        @RequestParam BigDecimal approvedAmount,
-        @RequestParam BigDecimal disbursedAmount,
         RedirectAttributes redirectAttributes
     ) {
         try {
             loanService.create(new LoanForm(
                 projectDescription, applicantFirstName, applicantSurname, applicantIdNumber,
-                contactNumber, region, townVillage, membershipStatus, gender, conditionsPrecedent,
-                interestRate, loanType, durationMonths, gracePeriodDays, "Initiation", null, loanConditions,
-                approvedAmount, disbursedAmount
+                contactNumber, region, townVillage, membershipStatus, gender, null,
+                BigDecimal.ZERO, loanType, durationMonths, 30, "Initiation", null, null,
+                BigDecimal.ZERO, BigDecimal.ZERO
             ));
             redirectAttributes.addFlashAttribute("successMessage", "Loan created.");
         } catch (IllegalArgumentException | DataAccessException ex) {
