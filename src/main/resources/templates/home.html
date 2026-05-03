@@ -5,41 +5,109 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loan Tracking App</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <style>
+        .home-shell {
+            max-width: 62rem;
+        }
+        .summary-strip {
+            background: linear-gradient(120deg, #0f172a, #1e3a8a 55%, #0b766e);
+            color: #fff;
+            border-radius: 8px;
+            padding: 1.25rem 1.5rem;
+        }
+        .summary-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin: 0;
+        }
+        .summary-subtitle {
+            margin: 0.35rem 0 0;
+            color: rgba(255, 255, 255, 0.88);
+            font-size: 0.95rem;
+        }
+        .metric-card {
+            border: 1px solid #dbe4f0;
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+        }
+        .metric-label {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0;
+            color: #52607a;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+        }
+        .metric-value {
+            font-size: 2rem;
+            line-height: 1.1;
+            margin: 0;
+            color: #0f172a;
+            font-weight: 700;
+        }
+        .status-header {
+            font-size: 0.9rem;
+            color: #52607a;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin: 0;
+        }
+        .status-card {
+            border: 1px solid #e3e8ef;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .status-label {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #52607a;
+            font-weight: 600;
+        }
+        .status-value {
+            margin: 0.15rem 0 0;
+            font-size: 1.7rem;
+            line-height: 1.1;
+            color: #111827;
+            font-weight: 700;
+        }
+    </style>
 </head>
 <body class="bg-body-tertiary">
 <header th:replace="~{fragments/header :: siteHeader('home')}"></header>
-<main class="container py-4">
-    <h1 class="h3 mb-2">Loan Tracking App</h1>
-    <p class="text-body-secondary mb-4">Signed in successfully.</p>
+<main class="container py-4 home-shell">
+    <section class="summary-strip mb-4">
+        <h1 class="summary-title">Loan Portfolio Summary</h1>
+        <p class="summary-subtitle">Current totals and status distribution across all captured loans.</p>
+    </section>
 
-    <div class="row g-3" style="max-width: 56rem;">
+    <div class="row g-3">
         <div class="col-12 col-md-6">
-            <div class="card shadow-sm h-100">
+            <div class="card metric-card h-100">
                 <div class="card-body">
-                    <h2 class="h6 text-body-secondary mb-2">Total Amount Approved</h2>
-                    <div class="h3 mb-0" th:text="${#numbers.formatDecimal(totalApprovedAmount, 1, 'COMMA', 2, 'POINT')}"></div>
+                    <h2 class="metric-label">Total Amount Approved</h2>
+                    <p class="metric-value" th:text="${#numbers.formatDecimal(totalApprovedAmount, 1, 'COMMA', 2, 'POINT')}"></p>
                 </div>
             </div>
         </div>
         <div class="col-12 col-md-6">
-            <div class="card shadow-sm h-100">
+            <div class="card metric-card h-100">
                 <div class="card-body">
-                    <h2 class="h6 text-body-secondary mb-2">Total Amount Disbursed</h2>
-                    <div class="h3 mb-0" th:text="${#numbers.formatDecimal(totalDisbursedAmount, 1, 'COMMA', 2, 'POINT')}"></div>
+                    <h2 class="metric-label">Total Amount Disbursed</h2>
+                    <p class="metric-value" th:text="${#numbers.formatDecimal(totalDisbursedAmount, 1, 'COMMA', 2, 'POINT')}"></p>
                 </div>
             </div>
         </div>
     </div>
     <p class="text-body-secondary small mt-3 mb-0">Totals shown above include only loans with status set to Approved.</p>
-    <div class="row g-3 mt-1" style="max-width: 56rem;">
+    <div class="row g-3 mt-1">
         <div class="col-12">
-            <h2 class="h6 text-body-secondary mb-0">Total Loans by Status</h2>
+            <h2 class="status-header">Total Loans by Status</h2>
         </div>
         <div class="col-12 col-md-6 col-lg-3" th:each="entry : ${totalLoansByStatus}">
-            <div class="card shadow-sm h-100">
+            <div class="card status-card h-100">
                 <div class="card-body">
-                    <h3 class="h6 text-body-secondary mb-2" th:text="${entry.key}"></h3>
-                    <div class="h3 mb-0" th:text="${entry.value}"></div>
+                    <h3 class="status-label" th:text="${entry.key}"></h3>
+                    <p class="status-value" th:text="${entry.value}"></p>
                 </div>
             </div>
         </div>
