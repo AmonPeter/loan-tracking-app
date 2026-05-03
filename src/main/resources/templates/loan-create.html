@@ -61,6 +61,20 @@
                     </select>
                 </div>
                 <div class="col-12 col-md-4">
+                    <label class="form-label">Duration (Months)</label>
+                    <select name="durationMonths" class="form-select" required>
+                        <option value="" selected disabled>Select duration</option>
+                        <option th:each="duration : ${loanDurations}" th:value="${duration}" th:text="${duration}"></option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Grace Period (Days)</label>
+                    <select name="gracePeriodDays" class="form-select" required>
+                        <option value="" selected disabled>Select grace period</option>
+                        <option th:each="days : ${gracePeriodDaysOptions}" th:value="${days}" th:text="${days}"></option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
                     <label class="form-label">Loan Status</label>
                     <select name="loanStatus" class="form-select" required>
                         <option value="" selected disabled>Select loan status</option>

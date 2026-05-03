@@ -7,3 +7,9 @@ databaseChangeLog:
       file: db/changelog/sql/003-user-example-admin.sql
   - include:
       file: db/changelog/sql/004-loans.sql
+  - include:
+      file: db/changelog/sql/005-loans-dummy-data.sql
+  - include:
+      file: db/changelog/sql/006-loans-duration.sql
+  - include:
+      file: db/changelog/sql/007-loans-grace-period.sql

@@ -15,6 +15,8 @@ public record LoanForm(
     String conditionsPrecedent,
     BigDecimal interestRate,
     String loanType,
+    Integer durationMonths,
+    Integer gracePeriodDays,
     String loanStatus,
     String loanStatusComment,
     String loanConditions,
