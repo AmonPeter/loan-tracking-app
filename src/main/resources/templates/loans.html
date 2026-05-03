@@ -30,18 +30,43 @@
                         <div class="col-12 col-md-6"><label class="form-label">Applicant Surname</label><input name="applicantSurname" class="form-control" th:value="${loan.applicantSurname}" required></div>
                         <div class="col-12 col-md-4"><label class="form-label">Applicant ID Number</label><input name="applicantIdNumber" class="form-control" th:value="${loan.applicantIdNumber}" required></div>
                         <div class="col-12 col-md-4"><label class="form-label">Contact Number</label><input name="contactNumber" class="form-control" th:value="${loan.contactNumber}" required></div>
-                        <div class="col-12 col-md-4"><label class="form-label">Region</label><input name="region" class="form-control" th:value="${loan.region}" required></div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label">Region</label>
+                            <select name="region" class="form-select" required>
+                                <option th:each="region : ${regions}" th:value="${region}" th:text="${region}" th:selected="${loan.region == region}"></option>
+                            </select>
+                        </div>
                         <div class="col-12 col-md-4"><label class="form-label">Town/Village</label><input name="townVillage" class="form-control" th:value="${loan.townVillage}" required></div>
-                        <div class="col-12 col-md-4"><label class="form-label">Membership Status</label><input name="membershipStatus" class="form-control" th:value="${loan.membershipStatus}" required></div>
-                        <div class="col-12 col-md-4"><label class="form-label">Gender</label><input name="gender" class="form-control" th:value="${loan.gender}" required></div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label">Membership</label>
+                            <select name="membershipStatus" class="form-select" required>
+                                <option th:each="membership : ${membershipOptions}" th:value="${membership}" th:text="${membership}" th:selected="${loan.membershipStatus == membership}"></option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label">Gender</label>
+                            <select name="gender" class="form-select" required>
+                                <option th:each="gender : ${genders}" th:value="${gender}" th:text="${gender}" th:selected="${loan.gender == gender}"></option>
+                            </select>
+                        </div>
                         <div class="col-12"><label class="form-label">Conditions Precedent</label><textarea name="conditionsPrecedent" class="form-control" rows="2" th:text="${loan.conditionsPrecedent}"></textarea></div>
                         <div class="col-12 col-md-4"><label class="form-label">Interest Rate (%)</label><input name="interestRate" type="number" step="0.01" min="0" class="form-control" th:value="${loan.interestRate}" required></div>
-                        <div class="col-12 col-md-4"><label class="form-label">Loan Type</label><input name="loanType" class="form-control" th:value="${loan.loanType}" required></div>
-                        <div class="col-12 col-md-4"><label class="form-label">Loan Status</label><input name="loanStatus" class="form-control" th:value="${loan.loanStatus}" required></div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label">Loan Type</label>
+                            <select name="loanType" class="form-select" required>
+                                <option th:each="loanType : ${loanTypes}" th:value="${loanType}" th:text="${loanType}" th:selected="${loan.loanType == loanType}"></option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label">Loan Status</label>
+                            <select name="loanStatus" class="form-select" required>
+                                <option th:each="loanStatus : ${loanStatuses}" th:value="${loanStatus}" th:text="${loanStatus}" th:selected="${loan.loanStatus == loanStatus}"></option>
+                            </select>
+                        </div>
                         <div class="col-12 col-md-6"><label class="form-label">Loan Status Comment</label><textarea name="loanStatusComment" class="form-control" rows="2" th:text="${loan.loanStatusComment}"></textarea></div>
                         <div class="col-12 col-md-6"><label class="form-label">Loan Conditions</label><textarea name="loanConditions" class="form-control" rows="2" th:text="${loan.loanConditions}"></textarea></div>
-                        <div class="col-12 col-md-6"><label class="form-label">Approved Amount</label><input name="approvedAmount" type="number" step="0.01" min="0" class="form-control" th:value="${loan.approvedAmount}" required></div>
-                        <div class="col-12 col-md-6"><label class="form-label">Disbursed Amount</label><input name="disbursedAmount" type="number" step="0.01" min="0" class="form-control" th:value="${loan.disbursedAmount}" required></div>
+                        <div class="col-12 col-md-6"><label class="form-label">Approved Amount</label><input name="approvedAmount" type="number" step="0.01" min="0" class="form-control" data-approved-amount th:value="${loan.approvedAmount}" required></div>
+                        <div class="col-12 col-md-6"><label class="form-label">Disbursed Amount</label><input name="disbursedAmount" type="number" step="0.01" min="0" class="form-control" data-disbursed-amount th:value="${loan.disbursedAmount}" required></div>
                         <div class="col-12 d-flex justify-content-between align-items-center">
                             <span class="badge text-bg-light" th:text="${'#' + loan.id}"></span>
                             <button type="submit" class="btn btn-outline-primary btn-sm">Save Changes</button>
@@ -53,5 +78,27 @@
     </div>
 </main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+<script>
+    function wireAmountValidation(root) {
+        const approved = root.querySelector("[data-approved-amount]");
+        const disbursed = root.querySelector("[data-disbursed-amount]");
+        if (!approved || !disbursed) return;
+
+        const validate = () => {
+            const approvedValue = parseFloat(approved.value);
+            const disbursedValue = parseFloat(disbursed.value);
+            if (!Number.isNaN(approvedValue) && !Number.isNaN(disbursedValue) && disbursedValue > approvedValue) {
+                disbursed.setCustomValidity("Disbursed Amount cannot be greater than Approved Amount.");
+            } else {
+                disbursed.setCustomValidity("");
+            }
+        };
+
+        approved.addEventListener("input", validate);
+        disbursed.addEventListener("input", validate);
+    }
+
+    document.querySelectorAll("form[action^='/loans/']").forEach(wireAmountValidation);
+</script>
 </body>
 </html>
