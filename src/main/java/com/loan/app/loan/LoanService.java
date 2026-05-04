@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -267,6 +268,117 @@ public class LoanService {
             total = total.add(monthlyInterest);
         }
         return total;
+    }
+
+    public List<LoanReportRow> reportRows(LocalDate fromDate, LocalDate toDate, String loanType, String region) {
+        LocalDate startDate = fromDate == null ? LocalDate.now().withDayOfMonth(1) : fromDate;
+        LocalDate endDate = toDate == null ? startDate.withDayOfMonth(startDate.lengthOfMonth()) : toDate;
+        if (endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("To date cannot be before From date.");
+        }
+
+        String normalizedLoanType = normalizeOptional(loanType);
+        String normalizedRegion = normalizeOptional(region);
+
+        StringBuilder sql = new StringBuilder("""
+            SELECT
+                id,
+                project_description AS projectDescription,
+                applicant_first_name AS applicantFirstName,
+                applicant_surname AS applicantSurname,
+                applicant_id_number AS applicantIdNumber,
+                contact_number AS contactNumber,
+                region,
+                town_village AS townVillage,
+                membership_status AS membershipStatus,
+                gender,
+                conditions_precedent AS conditionsPrecedent,
+                interest_rate AS interestRate,
+                loan_type AS loanType,
+                duration_months AS durationMonths,
+                grace_period_days AS gracePeriodDays,
+                loan_status AS loanStatus,
+                loan_status_comment AS loanStatusComment,
+                loan_conditions AS loanConditions,
+                approved_amount AS approvedAmount,
+                disbursed_amount AS disbursedAmount,
+                repayment_start_month AS repaymentStartMonth,
+                repayment_start_year AS repaymentStartYear,
+                repayment_start_date AS repaymentStartDate
+            FROM loans
+            WHERE loan_status = 'Approved'
+            """);
+        if (normalizedLoanType != null) {
+            sql.append(" AND loan_type = :loanType");
+        }
+        if (normalizedRegion != null) {
+            sql.append(" AND region = :region");
+        }
+        sql.append(" ORDER BY id DESC");
+
+        var statement = jdbcClient.sql(sql.toString());
+        if (normalizedLoanType != null) {
+            statement = statement.param("loanType", normalizedLoanType);
+        }
+        if (normalizedRegion != null) {
+            statement = statement.param("region", normalizedRegion);
+        }
+        List<LoanView> loans = statement.query(LoanView.class).list();
+        if (loans.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, BigDecimal> paidBeforeStart = sumPaidByLoanUpTo(startDate.minusDays(1));
+        Map<Long, BigDecimal> paidUpToEnd = sumPaidByLoanUpTo(endDate);
+
+        List<LoanReportRow> rows = new ArrayList<>();
+        for (LoanView loan : loans) {
+            if (loan.disbursedAmount() == null || loan.interestRate() == null || loan.durationMonths() == null || loan.durationMonths() <= 0) {
+                continue;
+            }
+            if (loan.repaymentStartMonth() == null || loan.repaymentStartYear() == null || loan.repaymentStartDate() == null) {
+                continue;
+            }
+
+            BigDecimal principal = loan.disbursedAmount();
+            BigDecimal annualRate = loan.interestRate().divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+            BigDecimal effectiveYears = BigDecimal.valueOf(loan.durationMonths() + (loan.gracePeriodDays() / 30.0))
+                .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
+            BigDecimal interestToBeOwned = principal.multiply(annualRate).multiply(effectiveYears);
+            BigDecimal totalRepayable = principal.add(interestToBeOwned);
+
+            BigDecimal paidBefore = paidBeforeStart.getOrDefault(loan.id(), BigDecimal.ZERO);
+            BigDecimal paidToEnd = paidUpToEnd.getOrDefault(loan.id(), BigDecimal.ZERO);
+
+            LocalDate firstRepaymentDate = LocalDate.of(loan.repaymentStartYear(), loan.repaymentStartMonth(), loan.repaymentStartDate())
+                .plusDays(loan.gracePeriodDays());
+            LocalDate lastRepaymentDate = firstRepaymentDate.plusMonths(Math.max(loan.durationMonths() - 1, 0));
+            // Include loan when its repayment window overlaps the selected range.
+            if (lastRepaymentDate.isBefore(startDate) || firstRepaymentDate.isAfter(endDate)) {
+                continue;
+            }
+
+            BigDecimal openingBalance = totalRepayable.subtract(paidBefore);
+            BigDecimal closingBalance = totalRepayable.subtract(paidToEnd);
+
+            if (openingBalance.compareTo(BigDecimal.ZERO) < 0) openingBalance = BigDecimal.ZERO;
+            if (closingBalance.compareTo(BigDecimal.ZERO) < 0) closingBalance = BigDecimal.ZERO;
+            if (closingBalance.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            rows.add(new LoanReportRow(
+                loan.id(),
+                firstRepaymentDate,
+                lastRepaymentDate,
+                principal,
+                openingBalance,
+                interestToBeOwned,
+                paidToEnd,
+                closingBalance
+            ));
+        }
+        return rows;
     }
 
     public Map<String, Long> totalLoansByStatus() {
@@ -725,6 +837,30 @@ public class LoanService {
             return null;
         }
         return "%" + value.trim().toLowerCase(Locale.ROOT) + "%";
+    }
+
+    private Map<Long, BigDecimal> sumPaidByLoanUpTo(LocalDate upToDateInclusive) {
+        if (upToDateInclusive == null) {
+            return Map.of();
+        }
+        Map<Long, BigDecimal> totals = new LinkedHashMap<>();
+        jdbcClient.sql("""
+            SELECT loan_id AS loanId, COALESCE(SUM(payment_amount), 0) AS totalPaid
+            FROM loan_repayments
+            WHERE payment_date <= :upToDate
+            GROUP BY loan_id
+            """)
+            .param("upToDate", upToDateInclusive)
+            .query()
+            .listOfRows()
+            .forEach(row -> {
+                Number loanId = (Number) row.get("loanId");
+                BigDecimal totalPaid = (BigDecimal) row.get("totalPaid");
+                if (loanId != null) {
+                    totals.put(loanId.longValue(), totalPaid == null ? BigDecimal.ZERO : totalPaid);
+                }
+            });
+        return totals;
     }
 
     private String classifyLoanHealth(LoanView loan, BigDecimal totalPaid, LocalDate today) {

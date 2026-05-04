@@ -2,6 +2,7 @@ package com.loan.app.loan;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.Year;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -146,6 +147,36 @@ public class LoanController {
         model.addAttribute("repayments", loanService.findRepaymentsByLoanId(id));
         model.addAttribute("outstandingAmount", loanService.outstandingAmount(loan));
         return "loan-detail";
+    }
+
+    @GetMapping("/reports")
+    public String reports(
+        @RequestParam(required = false) Integer fromMonth,
+        @RequestParam(required = false) Integer fromYear,
+        @RequestParam(required = false) Integer toMonth,
+        @RequestParam(required = false) Integer toYear,
+        @RequestParam(required = false) String loanType,
+        @RequestParam(required = false) String region,
+        Model model
+    ) {
+        LocalDate today = LocalDate.now();
+        int selectedFromMonth = fromMonth == null ? today.getMonthValue() : fromMonth;
+        int selectedFromYear = fromYear == null ? today.getYear() : fromYear;
+        int selectedToMonth = toMonth == null ? today.getMonthValue() : toMonth;
+        int selectedToYear = toYear == null ? today.getYear() : toYear;
+        LocalDate selectedFromDate = LocalDate.of(selectedFromYear, selectedFromMonth, 1);
+        LocalDate selectedToDate = YearMonth.of(selectedToYear, selectedToMonth).atEndOfMonth();
+
+        model.addAttribute("reportMonths", IntStream.rangeClosed(1, 12).boxed().toList());
+        model.addAttribute("reportYears", IntStream.rangeClosed(today.getYear() - 5, today.getYear() + 10).boxed().toList());
+        model.addAttribute("selectedFromMonth", selectedFromMonth);
+        model.addAttribute("selectedFromYear", selectedFromYear);
+        model.addAttribute("selectedToMonth", selectedToMonth);
+        model.addAttribute("selectedToYear", selectedToYear);
+        model.addAttribute("selectedLoanType", loanType == null ? "" : loanType);
+        model.addAttribute("selectedRegion", region == null ? "" : region);
+        model.addAttribute("rows", loanService.reportRows(selectedFromDate, selectedToDate, loanType, region));
+        return "reports";
     }
 
     @PostMapping("/loans/create")
