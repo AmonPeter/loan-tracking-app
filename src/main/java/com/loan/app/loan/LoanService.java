@@ -1,8 +1,10 @@
 package com.loan.app.loan;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -183,6 +185,68 @@ public class LoanService {
                 Number total = (Number) row.get("total");
                 counts.put(status, total == null ? 0L : total.longValue());
             });
+        return counts;
+    }
+
+    public Map<String, Long> loanHealthCounts() {
+        Map<String, Long> counts = new LinkedHashMap<>();
+        LocalDate today = LocalDate.now();
+
+        Map<Long, BigDecimal> paidByLoanId = new LinkedHashMap<>();
+        jdbcClient.sql("""
+            SELECT loan_id AS loanId, COALESCE(SUM(payment_amount), 0) AS totalPaid
+            FROM loan_repayments
+            GROUP BY loan_id
+            """)
+            .query()
+            .listOfRows()
+            .forEach(row -> {
+                Number loanId = (Number) row.get("loanId");
+                BigDecimal totalPaid = (BigDecimal) row.get("totalPaid");
+                if (loanId != null) {
+                    paidByLoanId.put(loanId.longValue(), totalPaid == null ? BigDecimal.ZERO : totalPaid);
+                }
+            });
+
+        List<LoanView> approvedLoans = jdbcClient.sql("""
+            SELECT
+                id,
+                project_description AS projectDescription,
+                applicant_first_name AS applicantFirstName,
+                applicant_surname AS applicantSurname,
+                applicant_id_number AS applicantIdNumber,
+                contact_number AS contactNumber,
+                region,
+                town_village AS townVillage,
+                membership_status AS membershipStatus,
+                gender,
+                conditions_precedent AS conditionsPrecedent,
+                interest_rate AS interestRate,
+                loan_type AS loanType,
+                duration_months AS durationMonths,
+                grace_period_days AS gracePeriodDays,
+                loan_status AS loanStatus,
+                loan_status_comment AS loanStatusComment,
+                loan_conditions AS loanConditions,
+                approved_amount AS approvedAmount,
+                disbursed_amount AS disbursedAmount,
+                repayment_start_month AS repaymentStartMonth,
+                repayment_start_year AS repaymentStartYear,
+                repayment_start_date AS repaymentStartDate
+            FROM loans
+            WHERE loan_status = 'Approved'
+              AND repayment_start_month IS NOT NULL
+              AND repayment_start_year IS NOT NULL
+              AND repayment_start_date IS NOT NULL
+            """)
+            .query(LoanView.class)
+            .list();
+
+        for (LoanView loan : approvedLoans) {
+            String health = classifyLoanHealth(loan, paidByLoanId.getOrDefault(loan.id(), BigDecimal.ZERO), today);
+            counts.merge(health, 1L, Long::sum);
+        }
+
         return counts;
     }
 
@@ -515,5 +579,60 @@ public class LoanService {
             return null;
         }
         return "%" + value.trim().toLowerCase(Locale.ROOT) + "%";
+    }
+
+    private String classifyLoanHealth(LoanView loan, BigDecimal totalPaid, LocalDate today) {
+        if (loan.disbursedAmount() == null || loan.interestRate() == null || loan.durationMonths() == null || loan.durationMonths() <= 0) {
+            return "Active Loan";
+        }
+
+        BigDecimal principal = loan.disbursedAmount();
+        BigDecimal annualRate = loan.interestRate().divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+        BigDecimal effectiveYears = BigDecimal.valueOf(loan.durationMonths() + (loan.gracePeriodDays() / 30.0))
+            .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
+        BigDecimal totalInterest = principal.multiply(annualRate).multiply(effectiveYears);
+        BigDecimal totalRepayable = principal.add(totalInterest);
+        BigDecimal monthlyInstallment = totalRepayable.divide(BigDecimal.valueOf(loan.durationMonths()), 10, RoundingMode.HALF_UP);
+
+        if (monthlyInstallment.compareTo(BigDecimal.ZERO) <= 0) {
+            return "Active Loan";
+        }
+
+        LocalDate firstDueDate = LocalDate.of(loan.repaymentStartYear(), loan.repaymentStartMonth(), loan.repaymentStartDate())
+            .plusDays(loan.gracePeriodDays());
+
+        int coveredInstallments = totalPaid.divide(monthlyInstallment, 0, RoundingMode.DOWN).intValue();
+        coveredInstallments = Math.max(0, Math.min(loan.durationMonths(), coveredInstallments));
+        if (coveredInstallments >= loan.durationMonths()) {
+            return "Active Loan";
+        }
+
+        LocalDate nextDueDate = firstDueDate.plusMonths(coveredInstallments);
+        long daysBehind = today.isAfter(nextDueDate) ? ChronoUnit.DAYS.between(nextDueDate, today) : 0;
+        if (daysBehind <= 0) {
+            return "Active Loan";
+        }
+
+        int dueCount = 0;
+        if (!today.isBefore(firstDueDate)) {
+            int monthDiff = (today.getYear() - firstDueDate.getYear()) * 12 + (today.getMonthValue() - firstDueDate.getMonthValue());
+            dueCount = monthDiff + (today.getDayOfMonth() >= firstDueDate.getDayOfMonth() ? 1 : 0);
+            dueCount = Math.max(0, Math.min(loan.durationMonths(), dueCount));
+        }
+        int missedInstallments = Math.max(0, dueCount - coveredInstallments);
+
+        if (daysBehind >= 90) {
+            return "Enforcement";
+        }
+        if (daysBehind <= 30) {
+            return "Early Arrears";
+        }
+        if (daysBehind <= 60) {
+            return "Persistent Arrears";
+        }
+        if (missedInstallments >= 3) {
+            return "Formal Default";
+        }
+        return "Persistent Arrears";
     }
 }

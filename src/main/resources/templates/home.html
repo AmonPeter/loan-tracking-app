@@ -70,6 +70,44 @@
             color: #111827;
             font-weight: 700;
         }
+        .health-card {
+            border: 1px solid #e3e8ef;
+            border-radius: 8px;
+            background: #fff;
+        }
+        .health-active {
+            background: #ecfdf5;
+            border-color: #a7f3d0;
+        }
+        .health-early {
+            background: #fff7ed;
+            border-color: #fed7aa;
+        }
+        .health-persistent {
+            background: #fef3c7;
+            border-color: #fcd34d;
+        }
+        .health-default {
+            background: #fee2e2;
+            border-color: #fca5a5;
+        }
+        .health-enforcement {
+            background: #e5e7eb;
+            border-color: #9ca3af;
+        }
+        .health-label {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #52607a;
+            font-weight: 600;
+        }
+        .health-value {
+            margin: 0.2rem 0 0;
+            font-size: 1.55rem;
+            line-height: 1.1;
+            color: #111827;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body class="bg-body-tertiary">
@@ -108,6 +146,26 @@
                 <div class="card-body">
                     <h3 class="status-label" th:text="${entry.key}"></h3>
                     <p class="status-value" th:text="${entry.value}"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row g-3 mt-1">
+        <div class="col-12">
+            <h2 class="status-header">Health of Loans</h2>
+        </div>
+        <div class="col-12 col-md-6 col-lg-4" th:each="entry : ${loanHealthCounts}">
+            <div
+                class="card health-card h-100"
+                th:classappend="${
+                    entry.key == 'Active Loan' ? ' health-active' :
+                    (entry.key == 'Early Arrears' ? ' health-early' :
+                    (entry.key == 'Persistent Arrears' ? ' health-persistent' :
+                    (entry.key == 'Formal Default' ? ' health-default' : ' health-enforcement')))
+                }">
+                <div class="card-body">
+                    <h3 class="health-label" th:text="${entry.key}"></h3>
+                    <p class="health-value" th:text="${entry.value}"></p>
                 </div>
             </div>
         </div>

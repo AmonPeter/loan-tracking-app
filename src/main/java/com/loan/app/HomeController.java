@@ -16,6 +16,13 @@ public class HomeController {
         "Withdrawn",
         "Declined"
     );
+    private static final List<String> LOAN_HEALTH_GROUPS = List.of(
+        "Active Loan",
+        "Early Arrears",
+        "Persistent Arrears",
+        "Formal Default",
+        "Enforcement"
+    );
 
     private final LoanService loanService;
 
@@ -31,6 +38,10 @@ public class HomeController {
         LOAN_STATUSES.forEach(status -> statusCounts.put(status, 0L));
         loanService.totalLoansByStatus().forEach(statusCounts::put);
         model.addAttribute("totalLoansByStatus", statusCounts.entrySet());
+        Map<String, Long> healthCounts = new LinkedHashMap<>();
+        LOAN_HEALTH_GROUPS.forEach(group -> healthCounts.put(group, 0L));
+        loanService.loanHealthCounts().forEach(healthCounts::put);
+        model.addAttribute("loanHealthCounts", healthCounts.entrySet());
         return "home";
     }
 }
