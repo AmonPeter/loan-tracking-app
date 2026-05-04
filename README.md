@@ -13,4 +13,12 @@ amon@example.com | password
 do they choose if this amount should go towards next month's repayment?
 4. How does grace period work, I my loan is approved on the 4th of may and I have a grace period
 of 30 days, when is my first repayment.
-5. How do you want reminders send
+5. How do you want reminders send, email, cellphone number?
+
+
+------------------------------------------------------
+1. 8 days before repayment date customer should receive reminder (email).
+2. Total amount owed (given out + interest - repaid)
+3. Overall interest for everyone
+4. Beginning of months, how much was owed to you, interest to be earned, repayments.
+5. Opening balance + interest - repayment = amount owed to you (closing balance).
