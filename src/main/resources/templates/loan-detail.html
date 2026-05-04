@@ -62,6 +62,25 @@
             padding-top: 1rem;
             margin-top: 0.25rem;
         }
+        .calc-panel {
+            border: 1px solid #dbe4f0;
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 0.9rem;
+        }
+        .calc-label {
+            font-size: 0.78rem;
+            color: #52607a;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+        }
+        .calc-value {
+            margin: 0;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
     </style>
 </head>
 <body class="bg-body-tertiary">
@@ -161,10 +180,104 @@
                 <div class="col-12 col-md-6"><label class="form-label">Loan Conditions</label><textarea name="loanConditions" class="form-control" rows="2" th:text="${loan.loanConditions}"></textarea></div>
                 <div class="col-12 col-md-6"><label class="form-label">Approved Amount</label><input name="approvedAmount" type="number" step="0.01" min="0" class="form-control" data-approved-amount th:value="${loan.approvedAmount}" required></div>
                 <div class="col-12 col-md-6"><label class="form-label">Disbursed Amount</label><input name="disbursedAmount" type="number" step="0.01" min="0" class="form-control" data-disbursed-amount th:value="${loan.disbursedAmount}" required></div>
-                <div class="col-12 actions-row d-flex justify-content-end">
+                <div class="col-12">
+                    <div class="calc-panel">
+                        <div class="row g-3">
+                            <div class="col-12 col-md-4">
+                                <div class="calc-label">Total Interest</div>
+                                <p class="calc-value" data-total-interest>0.00</p>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="calc-label">Total Repayable</div>
+                                <p class="calc-value" data-total-repayable>0.00</p>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="calc-label">Estimated Monthly Installment</div>
+                                <p class="calc-value" data-monthly-installment>0.00</p>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="calc-label">Amount Due To Date</div>
+                                <p class="calc-value" data-amount-due-to-date>0.00</p>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="calc-label">First Repayment Date</div>
+                                <p class="calc-value" data-first-repayment-date>--</p>
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <div class="calc-label">Next Repayment Date</div>
+                                <p class="calc-value" data-next-repayment-date>--</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 actions-row d-flex justify-content-end gap-2">
+                    <button
+                        type="button"
+                        th:if="${loan.loanStatus == 'Approved' and loan.repaymentStartMonth != null and loan.repaymentStartYear != null and loan.repaymentStartDate != null}"
+                        class="btn btn-outline-success px-4"
+                        data-bs-toggle="modal"
+                        data-bs-target="#capturePaymentModal">
+                        Capture Payment
+                    </button>
                     <button type="submit" class="btn btn-primary px-4">Save Changes</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="capturePaymentModal" tabindex="-1" aria-labelledby="capturePaymentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form method="post" th:action="@{/loans/{id}/payments(id=${loan.id})}" class="row g-0">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                    <div class="modal-header">
+                        <h2 class="modal-title fs-5" id="capturePaymentModalLabel">Capture Repayment</h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label">Payment Amount</label>
+                                <input name="paymentAmount" type="number" step="0.01" min="0.01" class="form-control" data-payment-amount required>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Payment Date</label>
+                                <input name="paymentDate" type="date" class="form-control">
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="useLatestDueMonth" name="useLatestDueMonth" value="true" checked data-latest-due-toggle>
+                                    <label class="form-check-label" for="useLatestDueMonth">
+                                        Apply payment to latest month due
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Repayment Month</label>
+                                <select name="repaymentMonth" class="form-select" data-payment-month disabled>
+                                    <option value="">Select month</option>
+                                    <option th:each="month : ${repaymentStartMonths}" th:value="${month}" th:text="${month}"></option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label">Repayment Year</label>
+                                <select name="repaymentYear" class="form-select" data-payment-year disabled>
+                                    <option value="">Select year</option>
+                                    <option th:each="year : ${repaymentStartYears}" th:value="${year}" th:text="${year}"></option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Payment Note</label>
+                                <textarea name="paymentNote" class="form-control" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Save Payment</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </main>
@@ -222,6 +335,181 @@
     }
 
     wireRepaymentStartValidation(document);
+
+    function wireRepaymentCalculator(root) {
+        const disbursed = root.querySelector("[data-disbursed-amount]");
+        const interestRate = root.querySelector("input[name='interestRate']");
+        const durationMonths = root.querySelector("select[name='durationMonths']");
+        const gracePeriodDays = root.querySelector("select[name='gracePeriodDays']");
+        const repaymentMonth = root.querySelector("[data-repayment-month]");
+        const repaymentYear = root.querySelector("[data-repayment-year]");
+        const repaymentDate = root.querySelector("[data-repayment-date]");
+        const totalInterestNode = root.querySelector("[data-total-interest]");
+        const totalRepayableNode = root.querySelector("[data-total-repayable]");
+        const monthlyInstallmentNode = root.querySelector("[data-monthly-installment]");
+        const amountDueToDateNode = root.querySelector("[data-amount-due-to-date]");
+        const firstRepaymentDateNode = root.querySelector("[data-first-repayment-date]");
+        const nextRepaymentDateNode = root.querySelector("[data-next-repayment-date]");
+        const paymentAmountInput = root.querySelector("[data-payment-amount]");
+
+        if (!disbursed || !interestRate || !durationMonths || !gracePeriodDays ||
+            !repaymentMonth || !repaymentYear || !repaymentDate ||
+            !totalInterestNode || !totalRepayableNode || !monthlyInstallmentNode || !amountDueToDateNode ||
+            !firstRepaymentDateNode || !nextRepaymentDateNode) {
+            return;
+        }
+
+        const formatMoney = (value) =>
+            new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+        const formatDate = (value) =>
+            new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric" }).format(value);
+
+        const compute = () => {
+            const principal = parseFloat(disbursed.value);
+            const ratePercent = parseFloat(interestRate.value);
+            const duration = parseInt(durationMonths.value, 10);
+            const graceDays = parseInt(gracePeriodDays.value, 10);
+            const startSelected = repaymentMonth.value && repaymentYear.value && repaymentDate.value;
+
+            if (!startSelected || Number.isNaN(principal) || Number.isNaN(ratePercent) ||
+                Number.isNaN(duration) || duration <= 0 || Number.isNaN(graceDays)) {
+                totalInterestNode.textContent = "0.00";
+                totalRepayableNode.textContent = "0.00";
+                monthlyInstallmentNode.textContent = "0.00";
+                amountDueToDateNode.textContent = "0.00";
+                firstRepaymentDateNode.textContent = "--";
+                nextRepaymentDateNode.textContent = "--";
+                return;
+            }
+
+            const annualRate = ratePercent / 100;
+            const graceMonths = graceDays / 30;
+            const effectiveYears = (duration + graceMonths) / 12;
+            const totalInterest = principal * annualRate * effectiveYears;
+            const totalRepayable = principal + totalInterest;
+            const monthlyInstallment = totalRepayable / duration;
+
+            const startDate = new Date(
+                parseInt(repaymentYear.value, 10),
+                parseInt(repaymentMonth.value, 10) - 1,
+                parseInt(repaymentDate.value, 10)
+            );
+            const firstDueDate = new Date(startDate);
+            firstDueDate.setDate(firstDueDate.getDate() + graceDays);
+
+            const today = new Date();
+            const currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            let installmentsDue = 0;
+
+            if (currentDate >= firstDueDate) {
+                const monthDiff =
+                    (currentDate.getFullYear() - firstDueDate.getFullYear()) * 12 +
+                    (currentDate.getMonth() - firstDueDate.getMonth());
+                installmentsDue = monthDiff + (currentDate.getDate() >= firstDueDate.getDate() ? 1 : 0);
+                installmentsDue = Math.max(0, Math.min(duration, installmentsDue));
+            }
+
+            const amountDueToDate = Math.min(totalRepayable, installmentsDue * monthlyInstallment);
+            const nextDueDate = new Date(firstDueDate);
+            nextDueDate.setMonth(nextDueDate.getMonth() + installmentsDue);
+
+            totalInterestNode.textContent = formatMoney(totalInterest);
+            totalRepayableNode.textContent = formatMoney(totalRepayable);
+            monthlyInstallmentNode.textContent = formatMoney(monthlyInstallment);
+            amountDueToDateNode.textContent = formatMoney(amountDueToDate);
+            firstRepaymentDateNode.textContent = formatDate(firstDueDate);
+            nextRepaymentDateNode.textContent = installmentsDue >= duration ? "Completed" : formatDate(nextDueDate);
+            if (paymentAmountInput && document.activeElement !== paymentAmountInput) {
+                paymentAmountInput.value = monthlyInstallment.toFixed(2);
+            }
+        };
+
+        disbursed.addEventListener("input", compute);
+        interestRate.addEventListener("input", compute);
+        durationMonths.addEventListener("change", compute);
+        gracePeriodDays.addEventListener("change", compute);
+        repaymentMonth.addEventListener("change", compute);
+        repaymentYear.addEventListener("change", compute);
+        repaymentDate.addEventListener("change", compute);
+        compute();
+    }
+
+    wireRepaymentCalculator(document);
+
+    function wirePaymentModal(root) {
+        const latestToggle = root.querySelector("[data-latest-due-toggle]");
+        const monthSelect = root.querySelector("[data-payment-month]");
+        const yearSelect = root.querySelector("[data-payment-year]");
+        const repaymentMonth = root.querySelector("[data-repayment-month]");
+        const repaymentYear = root.querySelector("[data-repayment-year]");
+        const repaymentDate = root.querySelector("[data-repayment-date]");
+        const gracePeriodDays = root.querySelector("select[name='gracePeriodDays']");
+        const durationMonths = root.querySelector("select[name='durationMonths']");
+        const capturePaymentModal = root.querySelector("#capturePaymentModal");
+        const paymentAmountInput = root.querySelector("[data-payment-amount]");
+        if (!latestToggle || !monthSelect || !yearSelect || !repaymentMonth || !repaymentYear || !repaymentDate || !gracePeriodDays || !durationMonths) {
+            return;
+        }
+
+        const setLatestDuePeriod = () => {
+            const startMonth = parseInt(repaymentMonth.value, 10);
+            const startYear = parseInt(repaymentYear.value, 10);
+            const startDay = parseInt(repaymentDate.value, 10);
+            const grace = parseInt(gracePeriodDays.value, 10);
+            const duration = parseInt(durationMonths.value, 10);
+            if ([startMonth, startYear, startDay, grace, duration].some(Number.isNaN)) return;
+
+            const start = new Date(startYear, startMonth - 1, startDay);
+            const firstDueDate = new Date(start);
+            firstDueDate.setDate(firstDueDate.getDate() + grace);
+
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            if (today < firstDueDate) {
+                monthSelect.value = String(firstDueDate.getMonth() + 1);
+                yearSelect.value = String(firstDueDate.getFullYear());
+                return;
+            }
+
+            const monthDiff =
+                (today.getFullYear() - firstDueDate.getFullYear()) * 12 +
+                (today.getMonth() - firstDueDate.getMonth());
+            let dueCount = monthDiff + (today.getDate() >= firstDueDate.getDate() ? 1 : 0);
+            dueCount = Math.max(1, Math.min(duration, dueCount));
+
+            const latestDue = new Date(firstDueDate);
+            latestDue.setMonth(latestDue.getMonth() + dueCount - 1);
+
+            monthSelect.value = String(latestDue.getMonth() + 1);
+            yearSelect.value = String(latestDue.getFullYear());
+        };
+
+        const syncState = () => {
+            const useLatest = latestToggle.checked;
+            monthSelect.disabled = useLatest;
+            yearSelect.disabled = useLatest;
+            monthSelect.required = !useLatest;
+            yearSelect.required = !useLatest;
+            if (useLatest) {
+                setLatestDuePeriod();
+            }
+        };
+
+        latestToggle.addEventListener("change", syncState);
+        if (capturePaymentModal && paymentAmountInput) {
+            capturePaymentModal.addEventListener("show.bs.modal", () => {
+                const monthlyInstallmentText = root.querySelector("[data-monthly-installment]")?.textContent ?? "0";
+                const sanitized = monthlyInstallmentText.replace(/,/g, "").trim();
+                const value = Number.parseFloat(sanitized);
+                if (!Number.isNaN(value) && value > 0) {
+                    paymentAmountInput.value = value.toFixed(2);
+                }
+            });
+        }
+        syncState();
+    }
+
+    wirePaymentModal(document);
 </script>
 </body>
 </html>

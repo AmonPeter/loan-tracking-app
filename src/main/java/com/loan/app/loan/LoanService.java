@@ -1,6 +1,7 @@
 package com.loan.app.loan;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,6 +18,9 @@ public class LoanService {
     private static final Set<Integer> ALLOWED_GRACE_PERIOD_DAYS = Set.of(30, 60, 90, 120, 160, 180, 210);
 
     private final JdbcClient jdbcClient;
+
+    private record RepaymentPeriod(int month, int year) {
+    }
 
     public LoanService(JdbcClient jdbcClient) {
         this.jdbcClient = jdbcClient;
@@ -339,6 +343,111 @@ public class LoanService {
             .param("repaymentStartDate", form.repaymentStartDate())
             .param("updatedAt", OffsetDateTime.now())
             .update();
+    }
+
+    public void captureRepayment(
+        long loanId,
+        BigDecimal paymentAmount,
+        LocalDate paymentDate,
+        boolean useLatestDueMonth,
+        Integer repaymentMonth,
+        Integer repaymentYear,
+        String paymentNote
+    ) {
+        LoanView loan = findById(loanId).orElseThrow(() -> new IllegalArgumentException("Loan not found."));
+
+        if (!"Approved".equalsIgnoreCase(loan.loanStatus())) {
+            throw new IllegalArgumentException("Repayments can only be captured for Approved loans.");
+        }
+        if (paymentAmount == null || paymentAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Payment Amount must be greater than zero.");
+        }
+        if (paymentDate == null) {
+            throw new IllegalArgumentException("Payment Date is required.");
+        }
+        if (loan.repaymentStartMonth() == null || loan.repaymentStartYear() == null || loan.repaymentStartDate() == null) {
+            throw new IllegalArgumentException("Repayment start setup is required before capturing payments.");
+        }
+
+        RepaymentPeriod period = resolveRepaymentPeriod(
+            loan,
+            paymentDate,
+            useLatestDueMonth,
+            repaymentMonth,
+            repaymentYear
+        );
+
+        jdbcClient.sql("""
+            INSERT INTO loan_repayments (
+                loan_id,
+                payment_amount,
+                payment_date,
+                repayment_month,
+                repayment_year,
+                payment_note,
+                created_at
+            ) VALUES (
+                :loanId,
+                :paymentAmount,
+                :paymentDate,
+                :repaymentMonth,
+                :repaymentYear,
+                :paymentNote,
+                :createdAt
+            )
+            """)
+            .param("loanId", loanId)
+            .param("paymentAmount", paymentAmount)
+            .param("paymentDate", paymentDate)
+            .param("repaymentMonth", period.month())
+            .param("repaymentYear", period.year())
+            .param("paymentNote", normalizeOptional(paymentNote))
+            .param("createdAt", OffsetDateTime.now())
+            .update();
+    }
+
+    private RepaymentPeriod resolveRepaymentPeriod(
+        LoanView loan,
+        LocalDate paymentDate,
+        boolean useLatestDueMonth,
+        Integer repaymentMonth,
+        Integer repaymentYear
+    ) {
+        LocalDate firstDueDate = LocalDate.of(
+            loan.repaymentStartYear(),
+            loan.repaymentStartMonth(),
+            loan.repaymentStartDate()
+        ).plusDays(loan.gracePeriodDays());
+
+        LocalDate lastDueDate = firstDueDate.plusMonths(Math.max(loan.durationMonths() - 1, 0));
+
+        if (useLatestDueMonth) {
+            if (paymentDate.isBefore(firstDueDate)) {
+                throw new IllegalArgumentException("No repayment is due yet for this loan.");
+            }
+            int monthDiff = (paymentDate.getYear() - firstDueDate.getYear()) * 12 + (paymentDate.getMonthValue() - firstDueDate.getMonthValue());
+            int dueCount = monthDiff + (paymentDate.getDayOfMonth() >= firstDueDate.getDayOfMonth() ? 1 : 0);
+            dueCount = Math.max(1, Math.min(loan.durationMonths(), dueCount));
+            LocalDate dueDate = firstDueDate.plusMonths(dueCount - 1L);
+            return new RepaymentPeriod(dueDate.getMonthValue(), dueDate.getYear());
+        }
+
+        if (repaymentMonth == null || repaymentMonth < 1 || repaymentMonth > 12) {
+            throw new IllegalArgumentException("Repayment Month is required.");
+        }
+        if (repaymentYear == null || repaymentYear < 2000 || repaymentYear > 2200) {
+            throw new IllegalArgumentException("Repayment Year is required.");
+        }
+
+        LocalDate selectedPeriodDate = LocalDate.of(repaymentYear, repaymentMonth, 1);
+        LocalDate firstPeriodDate = LocalDate.of(firstDueDate.getYear(), firstDueDate.getMonthValue(), 1);
+        LocalDate lastPeriodDate = LocalDate.of(lastDueDate.getYear(), lastDueDate.getMonthValue(), 1);
+
+        if (selectedPeriodDate.isBefore(firstPeriodDate) || selectedPeriodDate.isAfter(lastPeriodDate)) {
+            throw new IllegalArgumentException("Selected repayment month/year is outside the loan repayment schedule.");
+        }
+
+        return new RepaymentPeriod(repaymentMonth, repaymentYear);
     }
 
     private void validate(LoanForm form, boolean requireStatus) {

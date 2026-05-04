@@ -11,3 +11,5 @@ amon@example.com | password
     When is that the case?
 3. If client decides to pay extra on a day which isn't their repayment date, how is that treated.
 do they choose if this amount should go towards next month's repayment?
+4. How does grace period work, I my loan is approved on the 4th of may and I have a grace period
+of 30 days, when is my first repayment.

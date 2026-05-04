@@ -1,11 +1,13 @@
 package com.loan.app.loan;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.Year;
 import java.util.List;
 import java.util.stream.IntStream;
 
 import org.springframework.dao.DataAccessException;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -212,6 +214,34 @@ public class LoanController {
         } catch (IllegalArgumentException | DataAccessException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
             return "redirect:/loans/" + id;
+        }
+        return "redirect:/loans/" + id;
+    }
+
+    @PostMapping("/loans/{id}/payments")
+    public String captureRepayment(
+        @PathVariable long id,
+        @RequestParam BigDecimal paymentAmount,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate paymentDate,
+        @RequestParam(defaultValue = "false") boolean useLatestDueMonth,
+        @RequestParam(required = false) Integer repaymentMonth,
+        @RequestParam(required = false) Integer repaymentYear,
+        @RequestParam(required = false) String paymentNote,
+        RedirectAttributes redirectAttributes
+    ) {
+        try {
+            loanService.captureRepayment(
+                id,
+                paymentAmount,
+                paymentDate == null ? LocalDate.now() : paymentDate,
+                useLatestDueMonth,
+                repaymentMonth,
+                repaymentYear,
+                paymentNote
+            );
+            redirectAttributes.addFlashAttribute("successMessage", "Repayment captured.");
+        } catch (IllegalArgumentException | DataAccessException ex) {
+            redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
         }
         return "redirect:/loans/" + id;
     }
