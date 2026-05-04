@@ -210,6 +210,65 @@ public class LoanService {
         return total;
     }
 
+    public BigDecimal totalCurrentMonthInterest() {
+        LocalDate today = LocalDate.now();
+        List<LoanView> approvedLoans = jdbcClient.sql("""
+            SELECT
+                id,
+                project_description AS projectDescription,
+                applicant_first_name AS applicantFirstName,
+                applicant_surname AS applicantSurname,
+                applicant_id_number AS applicantIdNumber,
+                contact_number AS contactNumber,
+                region,
+                town_village AS townVillage,
+                membership_status AS membershipStatus,
+                gender,
+                conditions_precedent AS conditionsPrecedent,
+                interest_rate AS interestRate,
+                loan_type AS loanType,
+                duration_months AS durationMonths,
+                grace_period_days AS gracePeriodDays,
+                loan_status AS loanStatus,
+                loan_status_comment AS loanStatusComment,
+                loan_conditions AS loanConditions,
+                approved_amount AS approvedAmount,
+                disbursed_amount AS disbursedAmount,
+                repayment_start_month AS repaymentStartMonth,
+                repayment_start_year AS repaymentStartYear,
+                repayment_start_date AS repaymentStartDate
+            FROM loans
+            WHERE loan_status = 'Approved'
+            """)
+            .query(LoanView.class)
+            .list();
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (LoanView loan : approvedLoans) {
+            if (loan.disbursedAmount() == null || loan.interestRate() == null || loan.durationMonths() == null || loan.durationMonths() <= 0) {
+                continue;
+            }
+            if (outstandingAmount(loan).compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            if (loan.repaymentStartMonth() != null && loan.repaymentStartYear() != null && loan.repaymentStartDate() != null) {
+                LocalDate firstDueDate = LocalDate.of(loan.repaymentStartYear(), loan.repaymentStartMonth(), loan.repaymentStartDate())
+                    .plusDays(loan.gracePeriodDays());
+                LocalDate lastDueDate = firstDueDate.plusMonths(Math.max(loan.durationMonths() - 1, 0));
+                if (today.isBefore(firstDueDate) || today.isAfter(lastDueDate)) {
+                    continue;
+                }
+            }
+
+            BigDecimal monthlyInterest = loan.disbursedAmount()
+                .multiply(loan.interestRate())
+                .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP)
+                .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
+            total = total.add(monthlyInterest);
+        }
+        return total;
+    }
+
     public Map<String, Long> totalLoansByStatus() {
         Map<String, Long> counts = new LinkedHashMap<>();
         jdbcClient.sql("""

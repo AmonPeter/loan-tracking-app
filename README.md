@@ -19,6 +19,6 @@ of 30 days, when is my first repayment.
 ------------------------------------------------------
 1. 8 days before repayment date customer should receive reminder (email).
 2. Total amount owed (given out + interest - repaid)
-3. Overall interest for everyone
+3. Overall interest for everyone (for this month)
 4. Beginning of months, how much was owed to you, interest to be earned, repayments.
 5. Opening balance + interest - repayment = amount owed to you (closing balance).
