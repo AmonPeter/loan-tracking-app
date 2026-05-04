@@ -151,6 +151,14 @@
                 </div>
             </div>
         </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card metric-card h-100">
+                <div class="card-body">
+                    <h2 class="metric-label">Total Repayments (Current Month)</h2>
+                    <p class="metric-value" th:text="${#numbers.formatDecimal(totalRepaymentsCurrentMonth, 1, 'COMMA', 2, 'POINT')}"></p>
+                </div>
+            </div>
+        </div>
     </div>
     <p class="text-body-secondary small mt-3 mb-0">Totals shown above include only loans with status set to Approved.</p>
     <div class="row g-3 mt-1">

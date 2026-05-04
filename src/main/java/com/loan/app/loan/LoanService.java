@@ -270,6 +270,24 @@ public class LoanService {
         return total;
     }
 
+    public BigDecimal totalRepaymentsCurrentMonth() {
+        LocalDate today = LocalDate.now();
+        LocalDate startOfMonth = today.withDayOfMonth(1);
+        LocalDate endOfMonth = today.withDayOfMonth(today.lengthOfMonth());
+
+        BigDecimal total = jdbcClient.sql("""
+            SELECT COALESCE(SUM(payment_amount), 0)
+            FROM loan_repayments
+            WHERE payment_date >= :startOfMonth
+              AND payment_date <= :endOfMonth
+            """)
+            .param("startOfMonth", startOfMonth)
+            .param("endOfMonth", endOfMonth)
+            .query(BigDecimal.class)
+            .single();
+        return total == null ? BigDecimal.ZERO : total;
+    }
+
     public List<LoanReportRow> reportRows(LocalDate fromDate, LocalDate toDate, String loanType, String region) {
         LocalDate startDate = fromDate == null ? LocalDate.now().withDayOfMonth(1) : fromDate;
         LocalDate endDate = toDate == null ? startDate.withDayOfMonth(startDate.lengthOfMonth()) : toDate;
