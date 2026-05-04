@@ -470,6 +470,54 @@ public class LoanService {
             .update();
     }
 
+    public List<LoanRepaymentView> findRepaymentsByLoanId(long loanId) {
+        return jdbcClient.sql("""
+            SELECT
+                id,
+                loan_id AS loanId,
+                payment_amount AS paymentAmount,
+                payment_date AS paymentDate,
+                repayment_month AS repaymentMonth,
+                repayment_year AS repaymentYear,
+                payment_note AS paymentNote,
+                created_at AS createdAt
+            FROM loan_repayments
+            WHERE loan_id = :loanId
+            ORDER BY payment_date DESC, created_at DESC
+            """)
+            .param("loanId", loanId)
+            .query(LoanRepaymentView.class)
+            .list();
+    }
+
+    public BigDecimal outstandingAmount(LoanView loan) {
+        if (loan.disbursedAmount() == null || loan.interestRate() == null || loan.durationMonths() == null || loan.durationMonths() <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal paid = jdbcClient.sql("""
+            SELECT COALESCE(SUM(payment_amount), 0)
+            FROM loan_repayments
+            WHERE loan_id = :loanId
+            """)
+            .param("loanId", loan.id())
+            .query(BigDecimal.class)
+            .single();
+        if (paid == null) {
+            paid = BigDecimal.ZERO;
+        }
+
+        BigDecimal principal = loan.disbursedAmount();
+        BigDecimal annualRate = loan.interestRate().divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
+        BigDecimal effectiveYears = BigDecimal.valueOf(loan.durationMonths() + (loan.gracePeriodDays() / 30.0))
+            .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
+        BigDecimal totalInterest = principal.multiply(annualRate).multiply(effectiveYears);
+        BigDecimal totalRepayable = principal.add(totalInterest);
+
+        BigDecimal outstanding = totalRepayable.subtract(paid);
+        return outstanding.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : outstanding;
+    }
+
     private RepaymentPeriod resolveRepaymentPeriod(
         LoanView loan,
         LocalDate paymentDate,

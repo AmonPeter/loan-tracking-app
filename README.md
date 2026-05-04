@@ -13,3 +13,4 @@ amon@example.com | password
 do they choose if this amount should go towards next month's repayment?
 4. How does grace period work, I my loan is approved on the 4th of may and I have a grace period
 of 30 days, when is my first repayment.
+5. How do you want reminders send

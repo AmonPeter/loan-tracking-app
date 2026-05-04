@@ -143,6 +143,8 @@ public class LoanController {
         LoanView loan = loanService.findById(id)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Loan not found"));
         model.addAttribute("loan", loan);
+        model.addAttribute("repayments", loanService.findRepaymentsByLoanId(id));
+        model.addAttribute("outstandingAmount", loanService.outstandingAmount(loan));
         return "loan-detail";
     }
 
