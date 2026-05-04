@@ -34,6 +34,7 @@ public class HomeController {
     public String home(Model model) {
         model.addAttribute("totalDisbursedAmount", loanService.totalDisbursedAmount());
         model.addAttribute("totalApprovedAmount", loanService.totalApprovedAmount());
+        model.addAttribute("totalAmountOwed", loanService.totalAmountOwed());
         Map<String, Long> statusCounts = new LinkedHashMap<>();
         LOAN_STATUSES.forEach(status -> statusCounts.put(status, 0L));
         loanService.totalLoansByStatus().forEach(statusCounts::put);

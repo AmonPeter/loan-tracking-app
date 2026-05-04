@@ -119,7 +119,7 @@
     </section>
 
     <div class="row g-3">
-        <div class="col-12 col-md-6">
+        <div class="col-12 col-md-4">
             <div class="card metric-card h-100">
                 <div class="card-body">
                     <h2 class="metric-label">Total Amount Approved</h2>
@@ -127,11 +127,19 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-md-6">
+        <div class="col-12 col-md-4">
             <div class="card metric-card h-100">
                 <div class="card-body">
                     <h2 class="metric-label">Total Amount Disbursed</h2>
                     <p class="metric-value" th:text="${#numbers.formatDecimal(totalDisbursedAmount, 1, 'COMMA', 2, 'POINT')}"></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-4">
+            <div class="card metric-card h-100">
+                <div class="card-body">
+                    <h2 class="metric-label">Total Amount Owed</h2>
+                    <p class="metric-value" th:text="${#numbers.formatDecimal(totalAmountOwed, 1, 'COMMA', 2, 'POINT')}"></p>
                 </div>
             </div>
         </div>
