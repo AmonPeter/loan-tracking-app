@@ -1,6 +1,7 @@
 package com.loan.app.loan;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public record LoanForm(
     String projectDescription,
@@ -22,6 +23,7 @@ public record LoanForm(
     String loanConditions,
     BigDecimal approvedAmount,
     BigDecimal disbursedAmount,
+    LocalDate disbursementDate,
     Integer repaymentStartMonth,
     Integer repaymentStartYear,
     Integer repaymentStartDate

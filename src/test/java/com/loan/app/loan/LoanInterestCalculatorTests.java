@@ -45,6 +45,17 @@ class LoanInterestCalculatorTests {
         assertEquals("1126.83", money(monthlyInstallment));
     }
 
+    @Test
+    void accruedInterestUsesCompoundPeriods() {
+        BigDecimal accruedInterest = LoanInterestCalculator.accruedInterest(
+            BigDecimal.valueOf(12_000),
+            BigDecimal.valueOf(12),
+            3
+        );
+
+        assertEquals("363.61", money(accruedInterest));
+    }
+
     private String money(BigDecimal value) {
         return value.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }

@@ -19,6 +19,12 @@
                     <li class="nav-item">
                         <a class="nav-link" th:classappend="${activePage == 'reports'} ? ' active'" th:attr="aria-current=${activePage == 'reports'} ? 'page' : null" href="/reports">Reports</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activePage == 'quarterly-reports'} ? ' active'" th:attr="aria-current=${activePage == 'quarterly-reports'} ? 'page' : null" href="/reports/quarterly-fund-performance">Quarterly Report</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activePage == 'active-portfolio'} ? ' active'" th:attr="aria-current=${activePage == 'active-portfolio'} ? 'page' : null" href="/reports/active-loan-portfolio">Active Portfolio</a>
+                    </li>
                     <li class="nav-item" sec:authorize="hasRole('ADMIN')">
                         <a class="nav-link" th:classappend="${activePage == 'users'} ? ' active'" th:attr="aria-current=${activePage == 'users'} ? 'page' : null" href="/admin/users">Users</a>
                     </li>

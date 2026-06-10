@@ -26,8 +26,7 @@ final class LoanInterestCalculator {
 
         double monthlyRate = monthlyRate(annualRatePercent).doubleValue();
         double periods = durationMonths + graceMonths(gracePeriodDays);
-        double compoundFactor = Math.pow(1.0 + monthlyRate, periods);
-        return principal.multiply(BigDecimal.valueOf(compoundFactor));
+        return principal.add(accruedInterest(principal, annualRatePercent, periods));
     }
 
     static BigDecimal totalInterest(
@@ -74,6 +73,19 @@ final class LoanInterestCalculator {
         double periodsBeforeCurrentMonth = graceMonths(gracePeriodDays) + repaymentPeriodNumber - 1;
         double openingBalance = principal.doubleValue() * Math.pow(1.0 + monthlyRate.doubleValue(), periodsBeforeCurrentMonth);
         return BigDecimal.valueOf(openingBalance).multiply(monthlyRate);
+    }
+
+    static BigDecimal accruedInterest(BigDecimal principal, BigDecimal annualRatePercent, double periods) {
+        if (principal == null || annualRatePercent == null || periods <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (principal.compareTo(BigDecimal.ZERO) <= 0 || annualRatePercent.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        double monthlyRate = monthlyRate(annualRatePercent).doubleValue();
+        double compoundFactor = Math.pow(1.0 + monthlyRate, periods);
+        return principal.multiply(BigDecimal.valueOf(compoundFactor - 1.0));
     }
 
     private static BigDecimal monthlyRate(BigDecimal annualRatePercent) {

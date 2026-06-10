@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
@@ -52,6 +53,7 @@ public class LoanService {
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
                 disbursed_amount AS disbursedAmount,
+                disbursement_date AS disbursementDate,
                 repayment_start_month AS repaymentStartMonth,
                 repayment_start_year AS repaymentStartYear,
                 repayment_start_date AS repaymentStartDate
@@ -95,6 +97,7 @@ public class LoanService {
                     loan_conditions AS loanConditions,
                     approved_amount AS approvedAmount,
                     disbursed_amount AS disbursedAmount,
+                    disbursement_date AS disbursementDate,
                     repayment_start_month AS repaymentStartMonth,
                     repayment_start_year AS repaymentStartYear,
                     repayment_start_date AS repaymentStartDate
@@ -133,6 +136,7 @@ public class LoanService {
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
                 disbursed_amount AS disbursedAmount,
+                disbursement_date AS disbursementDate,
                 repayment_start_month AS repaymentStartMonth,
                 repayment_start_year AS repaymentStartYear,
                 repayment_start_date AS repaymentStartDate
@@ -195,6 +199,7 @@ public class LoanService {
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
                 disbursed_amount AS disbursedAmount,
+                disbursement_date AS disbursementDate,
                 repayment_start_month AS repaymentStartMonth,
                 repayment_start_year AS repaymentStartYear,
                 repayment_start_date AS repaymentStartDate
@@ -235,6 +240,7 @@ public class LoanService {
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
                 disbursed_amount AS disbursedAmount,
+                disbursement_date AS disbursementDate,
                 repayment_start_month AS repaymentStartMonth,
                 repayment_start_year AS repaymentStartYear,
                 repayment_start_date AS repaymentStartDate
@@ -324,6 +330,7 @@ public class LoanService {
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
                 disbursed_amount AS disbursedAmount,
+                disbursement_date AS disbursementDate,
                 repayment_start_month AS repaymentStartMonth,
                 repayment_start_year AS repaymentStartYear,
                 repayment_start_date AS repaymentStartDate
@@ -405,6 +412,151 @@ public class LoanService {
         return rows;
     }
 
+    public List<QuarterlyFundPerformanceRow> quarterlyFundPerformanceRows(int fromYear, int toYear, String loanType, String region) {
+        if (toYear < fromYear) {
+            throw new IllegalArgumentException("To year cannot be before From year.");
+        }
+
+        List<LoanView> loans = approvedLoansForReport(loanType, region);
+        if (loans.isEmpty()) {
+            return List.of();
+        }
+
+        List<QuarterlyFundPerformanceRow> rows = new ArrayList<>();
+        for (int year = fromYear; year <= toYear; year++) {
+            for (int quarter = 1; quarter <= 4; quarter++) {
+                int startMonth = ((quarter - 1) * 3) + 1;
+                LocalDate quarterStart = LocalDate.of(year, startMonth, 1);
+                LocalDate quarterEnd = YearMonth.of(year, startMonth + 2).atEndOfMonth();
+                LocalDate openingDate = quarterStart.minusDays(1);
+
+                Map<Long, BigDecimal> paidBeforeQuarter = sumPaidByLoanUpTo(openingDate);
+                Map<Long, BigDecimal> paidToQuarterEnd = sumPaidByLoanUpTo(quarterEnd);
+                Map<Long, BigDecimal> paidDuringQuarter = sumPaidByLoanBetween(quarterStart, quarterEnd);
+
+                BigDecimal openingFundValue = BigDecimal.ZERO;
+                BigDecimal closingFundValue = BigDecimal.ZERO;
+                BigDecimal disbursedAmount = BigDecimal.ZERO;
+                BigDecimal interestAccrued = BigDecimal.ZERO;
+                BigDecimal repaymentsReceived = BigDecimal.ZERO;
+                long activeLoanCount = 0;
+
+                for (LoanView loan : loans) {
+                    if (loan.disbursedAmount() == null || loan.disbursementDate() == null) {
+                        continue;
+                    }
+
+                    BigDecimal openingLoanValue = accruedOutstandingAmount(loan, openingDate, paidBeforeQuarter.getOrDefault(loan.id(), BigDecimal.ZERO));
+                    BigDecimal closingLoanValue = accruedOutstandingAmount(loan, quarterEnd, paidToQuarterEnd.getOrDefault(loan.id(), BigDecimal.ZERO));
+                    BigDecimal loanPayments = paidDuringQuarter.getOrDefault(loan.id(), BigDecimal.ZERO);
+
+                    openingFundValue = openingFundValue.add(openingLoanValue);
+                    closingFundValue = closingFundValue.add(closingLoanValue);
+                    repaymentsReceived = repaymentsReceived.add(loanPayments);
+                    if (!loan.disbursementDate().isBefore(quarterStart) && !loan.disbursementDate().isAfter(quarterEnd)) {
+                        disbursedAmount = disbursedAmount.add(loan.disbursedAmount());
+                    }
+                    if (!loan.disbursementDate().isAfter(quarterEnd) && closingLoanValue.compareTo(BigDecimal.ZERO) > 0) {
+                        activeLoanCount++;
+                    }
+
+                    BigDecimal openingInterest = accruedInterestAmount(loan, openingDate);
+                    BigDecimal closingInterest = accruedInterestAmount(loan, quarterEnd);
+                    interestAccrued = interestAccrued.add(closingInterest.subtract(openingInterest));
+                }
+
+                rows.add(new QuarterlyFundPerformanceRow(
+                    "Q" + quarter + " " + year,
+                    quarterStart,
+                    quarterEnd,
+                    openingFundValue,
+                    disbursedAmount,
+                    interestAccrued,
+                    repaymentsReceived,
+                    closingFundValue,
+                    activeLoanCount
+                ));
+            }
+        }
+        return rows;
+    }
+
+    public List<ActiveLoanPortfolioRow> activeLoanPortfolioRows(String loanType, String region, String healthStatus) {
+        String normalizedHealthStatus = normalizeOptional(healthStatus);
+        LocalDate today = LocalDate.now();
+        List<LoanView> loans = approvedLoansForReport(loanType, region);
+        if (loans.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, BigDecimal> paidByLoanId = sumPaidByLoanUpTo(today);
+        List<ActiveLoanPortfolioRow> rows = new ArrayList<>();
+        for (LoanView loan : loans) {
+            if (loan.disbursedAmount() == null || loan.disbursedAmount().compareTo(BigDecimal.ZERO) <= 0 ||
+                loan.interestRate() == null || loan.durationMonths() == null || loan.durationMonths() <= 0) {
+                continue;
+            }
+
+            BigDecimal totalRepayable = LoanInterestCalculator.totalRepayable(
+                loan.disbursedAmount(),
+                loan.interestRate(),
+                loan.durationMonths(),
+                loan.gracePeriodDays()
+            );
+            BigDecimal amountPaid = paidByLoanId.getOrDefault(loan.id(), BigDecimal.ZERO);
+            BigDecimal outstanding = totalRepayable.subtract(amountPaid);
+            if (outstanding.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            String health = canClassifyLoanHealth(loan)
+                ? classifyLoanHealth(loan, amountPaid, today)
+                : "Active Loan";
+            if (normalizedHealthStatus != null && !normalizedHealthStatus.equals(health)) {
+                continue;
+            }
+
+            rows.add(new ActiveLoanPortfolioRow(
+                loan.id(),
+                loan.applicantFirstName() + " " + loan.applicantSurname(),
+                loan.loanType(),
+                loan.region(),
+                loan.disbursementDate(),
+                loan.disbursedAmount(),
+                loan.interestRate(),
+                loan.durationMonths(),
+                totalRepayable,
+                amountPaid,
+                outstanding,
+                nextRepaymentDate(loan, amountPaid),
+                health
+            ));
+        }
+        return rows;
+    }
+
+    public ActiveLoanPortfolioSummary activeLoanPortfolioSummary(List<ActiveLoanPortfolioRow> rows) {
+        BigDecimal totalDisbursed = BigDecimal.ZERO;
+        BigDecimal totalRepayable = BigDecimal.ZERO;
+        BigDecimal totalPaid = BigDecimal.ZERO;
+        BigDecimal totalOutstanding = BigDecimal.ZERO;
+
+        for (ActiveLoanPortfolioRow row : rows) {
+            totalDisbursed = totalDisbursed.add(row.disbursedAmount());
+            totalRepayable = totalRepayable.add(row.totalRepayable());
+            totalPaid = totalPaid.add(row.amountPaid());
+            totalOutstanding = totalOutstanding.add(row.outstandingAmount());
+        }
+
+        return new ActiveLoanPortfolioSummary(
+            rows.size(),
+            totalDisbursed,
+            totalRepayable,
+            totalPaid,
+            totalOutstanding
+        );
+    }
+
     public Map<String, Long> totalLoansByStatus() {
         Map<String, Long> counts = new LinkedHashMap<>();
         jdbcClient.sql("""
@@ -464,6 +616,7 @@ public class LoanService {
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
                 disbursed_amount AS disbursedAmount,
+                disbursement_date AS disbursementDate,
                 repayment_start_month AS repaymentStartMonth,
                 repayment_start_year AS repaymentStartYear,
                 repayment_start_date AS repaymentStartDate
@@ -528,6 +681,7 @@ public class LoanService {
                 loan_conditions AS loanConditions,
                 approved_amount AS approvedAmount,
                 disbursed_amount AS disbursedAmount,
+                disbursement_date AS disbursementDate,
                 repayment_start_month AS repaymentStartMonth,
                 repayment_start_year AS repaymentStartYear,
                 repayment_start_date AS repaymentStartDate
@@ -549,13 +703,13 @@ public class LoanService {
                 applicant_id_number, contact_number, region, town_village,
                 membership_status, gender, conditions_precedent, interest_rate,
                 loan_type, duration_months, grace_period_days, loan_status, loan_status_comment, loan_conditions,
-                approved_amount, disbursed_amount, repayment_start_month, repayment_start_year, repayment_start_date, created_at, updated_at
+                approved_amount, disbursed_amount, disbursement_date, repayment_start_month, repayment_start_year, repayment_start_date, created_at, updated_at
             ) VALUES (
                 :projectDescription, :applicantFirstName, :applicantSurname,
                 :applicantIdNumber, :contactNumber, :region, :townVillage,
                 :membershipStatus, :gender, :conditionsPrecedent, :interestRate,
                 :loanType, :durationMonths, :gracePeriodDays, :loanStatus, :loanStatusComment, :loanConditions,
-                :approvedAmount, :disbursedAmount, :repaymentStartMonth, :repaymentStartYear, :repaymentStartDate, :createdAt, :updatedAt
+                :approvedAmount, :disbursedAmount, :disbursementDate, :repaymentStartMonth, :repaymentStartYear, :repaymentStartDate, :createdAt, :updatedAt
             )
             """)
             .param("projectDescription", form.projectDescription().trim())
@@ -577,6 +731,7 @@ public class LoanService {
             .param("loanConditions", normalizeOptional(form.loanConditions()))
             .param("approvedAmount", form.approvedAmount())
             .param("disbursedAmount", form.disbursedAmount())
+            .param("disbursementDate", form.disbursementDate())
             .param("repaymentStartMonth", form.repaymentStartMonth())
             .param("repaymentStartYear", form.repaymentStartYear())
             .param("repaymentStartDate", form.repaymentStartDate())
@@ -610,6 +765,7 @@ public class LoanService {
                 loan_conditions = :loanConditions,
                 approved_amount = :approvedAmount,
                 disbursed_amount = :disbursedAmount,
+                disbursement_date = :disbursementDate,
                 repayment_start_month = :repaymentStartMonth,
                 repayment_start_year = :repaymentStartYear,
                 repayment_start_date = :repaymentStartDate,
@@ -636,6 +792,7 @@ public class LoanService {
             .param("loanConditions", normalizeOptional(form.loanConditions()))
             .param("approvedAmount", form.approvedAmount())
             .param("disbursedAmount", form.disbursedAmount())
+            .param("disbursementDate", form.disbursementDate())
             .param("repaymentStartMonth", form.repaymentStartMonth())
             .param("repaymentStartYear", form.repaymentStartYear())
             .param("repaymentStartDate", form.repaymentStartDate())
@@ -843,6 +1000,10 @@ public class LoanService {
             throw new IllegalArgumentException("Disbursed Amount cannot exceed Approved Amount.");
         }
 
+        if (form.disbursedAmount().compareTo(BigDecimal.ZERO) > 0 && form.disbursementDate() == null) {
+            throw new IllegalArgumentException("Disbursement Date is required when Disbursed Amount is greater than zero.");
+        }
+
         if ("Approved".equalsIgnoreCase(form.loanStatus())) {
             if (form.repaymentStartMonth() == null || form.repaymentStartMonth() < 1 || form.repaymentStartMonth() > 12) {
                 throw new IllegalArgumentException("Repayment Start Month is required when loan status is Approved.");
@@ -873,6 +1034,57 @@ public class LoanService {
         return "%" + value.trim().toLowerCase(Locale.ROOT) + "%";
     }
 
+    private List<LoanView> approvedLoansForReport(String loanType, String region) {
+        String normalizedLoanType = normalizeOptional(loanType);
+        String normalizedRegion = normalizeOptional(region);
+
+        StringBuilder sql = new StringBuilder("""
+            SELECT
+                id,
+                project_description AS projectDescription,
+                applicant_first_name AS applicantFirstName,
+                applicant_surname AS applicantSurname,
+                applicant_id_number AS applicantIdNumber,
+                contact_number AS contactNumber,
+                region,
+                town_village AS townVillage,
+                membership_status AS membershipStatus,
+                gender,
+                conditions_precedent AS conditionsPrecedent,
+                interest_rate AS interestRate,
+                loan_type AS loanType,
+                duration_months AS durationMonths,
+                grace_period_days AS gracePeriodDays,
+                loan_status AS loanStatus,
+                loan_status_comment AS loanStatusComment,
+                loan_conditions AS loanConditions,
+                approved_amount AS approvedAmount,
+                disbursed_amount AS disbursedAmount,
+                disbursement_date AS disbursementDate,
+                repayment_start_month AS repaymentStartMonth,
+                repayment_start_year AS repaymentStartYear,
+                repayment_start_date AS repaymentStartDate
+            FROM loans
+            WHERE loan_status = 'Approved'
+            """);
+        if (normalizedLoanType != null) {
+            sql.append(" AND loan_type = :loanType");
+        }
+        if (normalizedRegion != null) {
+            sql.append(" AND region = :region");
+        }
+        sql.append(" ORDER BY id DESC");
+
+        var statement = jdbcClient.sql(sql.toString());
+        if (normalizedLoanType != null) {
+            statement = statement.param("loanType", normalizedLoanType);
+        }
+        if (normalizedRegion != null) {
+            statement = statement.param("region", normalizedRegion);
+        }
+        return statement.query(LoanView.class).list();
+    }
+
     private Map<Long, BigDecimal> sumPaidByLoanUpTo(LocalDate upToDateInclusive) {
         if (upToDateInclusive == null) {
             return Map.of();
@@ -893,8 +1105,91 @@ public class LoanService {
                 if (loanId != null) {
                     totals.put(loanId.longValue(), totalPaid == null ? BigDecimal.ZERO : totalPaid);
                 }
+        });
+        return totals;
+    }
+
+    private Map<Long, BigDecimal> sumPaidByLoanBetween(LocalDate fromDateInclusive, LocalDate toDateInclusive) {
+        if (fromDateInclusive == null || toDateInclusive == null || toDateInclusive.isBefore(fromDateInclusive)) {
+            return Map.of();
+        }
+        Map<Long, BigDecimal> totals = new LinkedHashMap<>();
+        jdbcClient.sql("""
+            SELECT loan_id AS loanId, COALESCE(SUM(payment_amount), 0) AS totalPaid
+            FROM loan_repayments
+            WHERE payment_date >= :fromDate
+              AND payment_date <= :toDate
+            GROUP BY loan_id
+            """)
+            .param("fromDate", fromDateInclusive)
+            .param("toDate", toDateInclusive)
+            .query()
+            .listOfRows()
+            .forEach(row -> {
+                Number loanId = (Number) row.get("loanId");
+                BigDecimal totalPaid = (BigDecimal) row.get("totalPaid");
+                if (loanId != null) {
+                    totals.put(loanId.longValue(), totalPaid == null ? BigDecimal.ZERO : totalPaid);
+                }
             });
         return totals;
+    }
+
+    private BigDecimal accruedOutstandingAmount(LoanView loan, LocalDate asOfDate, BigDecimal paid) {
+        if (loan.disbursementDate() == null || asOfDate.isBefore(loan.disbursementDate())) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal value = loan.disbursedAmount().add(accruedInterestAmount(loan, asOfDate));
+        BigDecimal outstanding = value.subtract(paid == null ? BigDecimal.ZERO : paid);
+        return outstanding.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : outstanding;
+    }
+
+    private BigDecimal accruedInterestAmount(LoanView loan, LocalDate asOfDate) {
+        if (loan.disbursementDate() == null || loan.disbursedAmount() == null || loan.interestRate() == null ||
+            loan.durationMonths() == null || loan.durationMonths() <= 0 || asOfDate.isBefore(loan.disbursementDate())) {
+            return BigDecimal.ZERO;
+        }
+
+        long elapsedDays = ChronoUnit.DAYS.between(loan.disbursementDate(), asOfDate);
+        double elapsedPeriods = Math.max(0, elapsedDays / 30.0);
+        int gracePeriodDays = loan.gracePeriodDays() == null ? 0 : loan.gracePeriodDays();
+        double maxPeriods = loan.durationMonths() + (Math.max(gracePeriodDays, 0) / 30.0);
+        return LoanInterestCalculator.accruedInterest(
+            loan.disbursedAmount(),
+            loan.interestRate(),
+            Math.min(elapsedPeriods, maxPeriods)
+        );
+    }
+
+    private boolean canClassifyLoanHealth(LoanView loan) {
+        return loan.repaymentStartMonth() != null && loan.repaymentStartYear() != null && loan.repaymentStartDate() != null;
+    }
+
+    private LocalDate nextRepaymentDate(LoanView loan, BigDecimal totalPaid) {
+        if (!canClassifyLoanHealth(loan) || loan.disbursedAmount() == null || loan.interestRate() == null ||
+            loan.durationMonths() == null || loan.durationMonths() <= 0) {
+            return null;
+        }
+
+        BigDecimal monthlyInstallment = LoanInterestCalculator.monthlyInstallment(
+            loan.disbursedAmount(),
+            loan.interestRate(),
+            loan.durationMonths(),
+            loan.gracePeriodDays()
+        );
+        if (monthlyInstallment.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+        }
+
+        int coveredInstallments = totalPaid.divide(monthlyInstallment, 0, RoundingMode.DOWN).intValue();
+        coveredInstallments = Math.max(0, Math.min(loan.durationMonths(), coveredInstallments));
+        if (coveredInstallments >= loan.durationMonths()) {
+            return null;
+        }
+
+        LocalDate firstDueDate = LocalDate.of(loan.repaymentStartYear(), loan.repaymentStartMonth(), loan.repaymentStartDate())
+            .plusDays(loan.gracePeriodDays());
+        return firstDueDate.plusMonths(coveredInstallments);
     }
 
     private String classifyLoanHealth(LoanView loan, BigDecimal totalPaid, LocalDate today) {

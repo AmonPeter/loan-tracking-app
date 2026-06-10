@@ -19,3 +19,5 @@ databaseChangeLog:
       file: db/changelog/sql/009-loans-repayment-start-date.sql
   - include:
       file: db/changelog/sql/010-loan-repayments.sql
+  - include:
+      file: db/changelog/sql/011-loans-disbursement-date.sql
