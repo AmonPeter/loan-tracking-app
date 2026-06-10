@@ -252,6 +252,7 @@ public class LoanService {
             if (outstandingAmount(loan).compareTo(BigDecimal.ZERO) <= 0) {
                 continue;
             }
+            int dueCount = 1;
             if (loan.repaymentStartMonth() != null && loan.repaymentStartYear() != null && loan.repaymentStartDate() != null) {
                 LocalDate firstDueDate = LocalDate.of(loan.repaymentStartYear(), loan.repaymentStartMonth(), loan.repaymentStartDate())
                     .plusDays(loan.gracePeriodDays());
@@ -259,12 +260,15 @@ public class LoanService {
                 if (today.isBefore(firstDueDate) || today.isAfter(lastDueDate)) {
                     continue;
                 }
+                dueCount = dueInstallmentCount(today, firstDueDate, loan.durationMonths());
             }
 
-            BigDecimal monthlyInterest = loan.disbursedAmount()
-                .multiply(loan.interestRate())
-                .divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP)
-                .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
+            BigDecimal monthlyInterest = LoanInterestCalculator.monthlyCompoundInterest(
+                loan.disbursedAmount(),
+                loan.interestRate(),
+                loan.gracePeriodDays(),
+                dueCount
+            );
             total = total.add(monthlyInterest);
         }
         return total;
@@ -359,11 +363,13 @@ public class LoanService {
             }
 
             BigDecimal principal = loan.disbursedAmount();
-            BigDecimal annualRate = loan.interestRate().divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
-            BigDecimal effectiveYears = BigDecimal.valueOf(loan.durationMonths() + (loan.gracePeriodDays() / 30.0))
-                .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
-            BigDecimal interestToBeOwned = principal.multiply(annualRate).multiply(effectiveYears);
-            BigDecimal totalRepayable = principal.add(interestToBeOwned);
+            BigDecimal totalRepayable = LoanInterestCalculator.totalRepayable(
+                principal,
+                loan.interestRate(),
+                loan.durationMonths(),
+                loan.gracePeriodDays()
+            );
+            BigDecimal interestToBeOwned = totalRepayable.subtract(principal);
 
             BigDecimal paidBefore = paidBeforeStart.getOrDefault(loan.id(), BigDecimal.ZERO);
             BigDecimal paidToEnd = paidUpToEnd.getOrDefault(loan.id(), BigDecimal.ZERO);
@@ -735,12 +741,12 @@ public class LoanService {
             paid = BigDecimal.ZERO;
         }
 
-        BigDecimal principal = loan.disbursedAmount();
-        BigDecimal annualRate = loan.interestRate().divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
-        BigDecimal effectiveYears = BigDecimal.valueOf(loan.durationMonths() + (loan.gracePeriodDays() / 30.0))
-            .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
-        BigDecimal totalInterest = principal.multiply(annualRate).multiply(effectiveYears);
-        BigDecimal totalRepayable = principal.add(totalInterest);
+        BigDecimal totalRepayable = LoanInterestCalculator.totalRepayable(
+            loan.disbursedAmount(),
+            loan.interestRate(),
+            loan.durationMonths(),
+            loan.gracePeriodDays()
+        );
 
         BigDecimal outstanding = totalRepayable.subtract(paid);
         return outstanding.compareTo(BigDecimal.ZERO) < 0 ? BigDecimal.ZERO : outstanding;
@@ -788,6 +794,16 @@ public class LoanService {
         }
 
         return new RepaymentPeriod(repaymentMonth, repaymentYear);
+    }
+
+    private int dueInstallmentCount(LocalDate date, LocalDate firstDueDate, int durationMonths) {
+        if (date.isBefore(firstDueDate)) {
+            return 0;
+        }
+
+        int monthDiff = (date.getYear() - firstDueDate.getYear()) * 12 + (date.getMonthValue() - firstDueDate.getMonthValue());
+        int dueCount = monthDiff + (date.getDayOfMonth() >= firstDueDate.getDayOfMonth() ? 1 : 0);
+        return Math.max(0, Math.min(durationMonths, dueCount));
     }
 
     private void validate(LoanForm form, boolean requireStatus) {
@@ -886,13 +902,12 @@ public class LoanService {
             return "Active Loan";
         }
 
-        BigDecimal principal = loan.disbursedAmount();
-        BigDecimal annualRate = loan.interestRate().divide(BigDecimal.valueOf(100), 10, RoundingMode.HALF_UP);
-        BigDecimal effectiveYears = BigDecimal.valueOf(loan.durationMonths() + (loan.gracePeriodDays() / 30.0))
-            .divide(BigDecimal.valueOf(12), 10, RoundingMode.HALF_UP);
-        BigDecimal totalInterest = principal.multiply(annualRate).multiply(effectiveYears);
-        BigDecimal totalRepayable = principal.add(totalInterest);
-        BigDecimal monthlyInstallment = totalRepayable.divide(BigDecimal.valueOf(loan.durationMonths()), 10, RoundingMode.HALF_UP);
+        BigDecimal monthlyInstallment = LoanInterestCalculator.monthlyInstallment(
+            loan.disbursedAmount(),
+            loan.interestRate(),
+            loan.durationMonths(),
+            loan.gracePeriodDays()
+        );
 
         if (monthlyInstallment.compareTo(BigDecimal.ZERO) <= 0) {
             return "Active Loan";

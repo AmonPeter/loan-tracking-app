@@ -1,0 +1,3 @@
+id,email,password_hash,role,enabled,account_non_expired,account_non_locked,credentials_non_expired,created_at,updated_at,last_login_at
+1,user@example.com,$2a$12$bTy1kmuAq7hKN0q5wtM3AewnTc.OVPu475VblwSxJYOIZpyqm8Niy,ADMIN,t,t,t,t,2026-05-03 19:18:42.012267+00,2026-05-03 19:18:42.012267+00,
+2,amon@example.com,$2a$10$Ljeq5MX1ozTgnlwrzA.sBOk9zDBS/ehlPEsYMfQ.IK7.N16hPFSLO,USER,t,t,t,t,2026-05-03 19:45:10.947409+00,2026-05-03 19:45:10.947544+00,

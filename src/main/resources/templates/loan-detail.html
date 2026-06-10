@@ -184,7 +184,7 @@
                     <div class="calc-panel">
                         <div class="row g-3">
                             <div class="col-12 col-md-4">
-                                <div class="calc-label">Total Interest</div>
+                                <div class="calc-label">Total Compound Interest</div>
                                 <p class="calc-value" data-total-interest>0.00</p>
                             </div>
                             <div class="col-12 col-md-4">
@@ -419,11 +419,11 @@
                 return;
             }
 
-            const annualRate = ratePercent / 100;
+            const monthlyRate = ratePercent / 100 / 12;
             const graceMonths = graceDays / 30;
-            const effectiveYears = (duration + graceMonths) / 12;
-            const totalInterest = principal * annualRate * effectiveYears;
-            const totalRepayable = principal + totalInterest;
+            const totalPeriods = duration + graceMonths;
+            const totalRepayable = principal * Math.pow(1 + monthlyRate, totalPeriods);
+            const totalInterest = totalRepayable - principal;
             const monthlyInstallment = totalRepayable / duration;
 
             const startDate = new Date(

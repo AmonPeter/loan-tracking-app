@@ -1,0 +1,2 @@
+id,loan_id,payment_amount,payment_date,repayment_month,repayment_year,payment_note,created_at
+1,4,8617.19,2026-05-04,5,2026,paid,2026-05-04 10:47:35.739889+00
