@@ -20,6 +20,6 @@ databaseChangeLog:
   - include:
       file: db/changelog/sql/011-loans-disbursement-date.sql
   - include:
-      file: db/changelog/sql/013-interest-rate-settings.sql
-  - include:
       file: db/changelog/sql/014-loan-types.sql
+  - include:
+      file: db/changelog/sql/015-loan-type-interest-rates.sql

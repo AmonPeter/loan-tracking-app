@@ -3,7 +3,6 @@ package com.loan.app.loan;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -16,46 +15,53 @@ public class InterestRateService {
         this.jdbcClient = jdbcClient;
     }
 
-    public Optional<BigDecimal> currentRate() {
-        return jdbcClient.sql("""
-            SELECT interest_rate
-            FROM interest_rate_settings
-            ORDER BY created_at DESC, id DESC
-            LIMIT 1
-            """)
-            .query(BigDecimal.class)
-            .optional();
-    }
-
-    public BigDecimal requireCurrentRate() {
-        return currentRate()
-            .orElseThrow(() -> new IllegalArgumentException("Please configure the current interest rate before creating a loan application."));
-    }
-
-    public List<InterestRateSettingView> recentRates() {
+    public List<LoanTypeView> activeLoanTypeRates() {
         return jdbcClient.sql("""
             SELECT
                 id,
+                name,
                 interest_rate AS interestRate,
-                created_at AS createdAt
-            FROM interest_rate_settings
-            ORDER BY created_at DESC, id DESC
-            LIMIT 10
+                active,
+                created_at AS createdAt,
+                updated_at AS updatedAt
+            FROM loan_types
+            WHERE active = TRUE
+            ORDER BY name
             """)
-            .query(InterestRateSettingView.class)
+            .query(LoanTypeView.class)
             .list();
     }
 
-    public void saveRate(BigDecimal interestRate) {
+    public BigDecimal requireRateForLoanType(long loanTypeId) {
+        return jdbcClient.sql("""
+            SELECT interest_rate
+            FROM loan_types
+            WHERE id = :loanTypeId
+              AND active = TRUE
+            """)
+            .param("loanTypeId", loanTypeId)
+            .query(BigDecimal.class)
+            .optional()
+            .orElseThrow(() -> new IllegalArgumentException("Please select an active loan type with a configured interest rate."));
+    }
+
+    public void saveRate(long loanTypeId, BigDecimal interestRate) {
         validate(interestRate);
 
-        jdbcClient.sql("""
-            INSERT INTO interest_rate_settings (interest_rate, created_at)
-            VALUES (:interestRate, :createdAt)
+        int updated = jdbcClient.sql("""
+            UPDATE loan_types
+            SET interest_rate = :interestRate,
+                updated_at = :updatedAt
+            WHERE id = :loanTypeId
+              AND active = TRUE
             """)
+            .param("loanTypeId", loanTypeId)
             .param("interestRate", interestRate)
-            .param("createdAt", OffsetDateTime.now())
+            .param("updatedAt", OffsetDateTime.now())
             .update();
+        if (updated == 0) {
+            throw new IllegalArgumentException("Active loan type not found.");
+        }
     }
 
     private void validate(BigDecimal interestRate) {

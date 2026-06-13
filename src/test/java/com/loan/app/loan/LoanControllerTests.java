@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.ui.ExtendedModelMap;
@@ -109,12 +108,7 @@ class LoanControllerTests {
         }
 
         @Override
-        public Optional<BigDecimal> currentRate() {
-            return Optional.of(BigDecimal.TEN);
-        }
-
-        @Override
-        public BigDecimal requireCurrentRate() {
+        public BigDecimal requireRateForLoanType(long loanTypeId) {
             return BigDecimal.TEN;
         }
     }
@@ -126,7 +120,7 @@ class LoanControllerTests {
 
         @Override
         public List<LoanTypeView> findActive() {
-            return List.of(new LoanTypeView(1L, "Micro loan", true, null, null));
+            return List.of(new LoanTypeView(1L, "Micro loan", BigDecimal.TEN, true, null, null));
         }
     }
 }

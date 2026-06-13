@@ -20,19 +20,19 @@ public class InterestRateController {
 
     @GetMapping("/admin/interest-rate")
     public String interestRate(Model model) {
-        model.addAttribute("currentInterestRate", interestRateService.currentRate().orElse(null));
-        model.addAttribute("interestRateHistory", interestRateService.recentRates());
+        model.addAttribute("loanTypes", interestRateService.activeLoanTypeRates());
         return "admin-interest-rate";
     }
 
     @PostMapping("/admin/interest-rate")
     public String updateInterestRate(
+        @RequestParam long loanTypeId,
         @RequestParam BigDecimal interestRate,
         RedirectAttributes redirectAttributes
     ) {
         try {
-            interestRateService.saveRate(interestRate);
-            redirectAttributes.addFlashAttribute("successMessage", "Interest rate updated for future loan applications.");
+            interestRateService.saveRate(loanTypeId, interestRate);
+            redirectAttributes.addFlashAttribute("successMessage", "Loan type interest rate updated for future applications.");
         } catch (IllegalArgumentException | DataAccessException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
         }

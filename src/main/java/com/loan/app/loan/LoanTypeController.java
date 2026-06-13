@@ -1,5 +1,7 @@
 package com.loan.app.loan;
 
+import java.math.BigDecimal;
+
 import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -26,10 +28,11 @@ public class LoanTypeController {
     @PostMapping("/admin/loan-types")
     public String createLoanType(
         @RequestParam String name,
+        @RequestParam BigDecimal interestRate,
         RedirectAttributes redirectAttributes
     ) {
         try {
-            loanTypeService.create(name);
+            loanTypeService.create(name, interestRate);
             redirectAttributes.addFlashAttribute("successMessage", "Loan type created.");
         } catch (IllegalArgumentException | DataAccessException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());
@@ -42,11 +45,12 @@ public class LoanTypeController {
     public String updateLoanType(
         @PathVariable long id,
         @RequestParam String name,
+        @RequestParam BigDecimal interestRate,
         @RequestParam(defaultValue = "false") boolean active,
         RedirectAttributes redirectAttributes
     ) {
         try {
-            loanTypeService.update(id, name, active);
+            loanTypeService.update(id, name, interestRate, active);
             redirectAttributes.addFlashAttribute("successMessage", "Loan type updated.");
         } catch (IllegalArgumentException | DataAccessException ex) {
             redirectAttributes.addFlashAttribute("errorMessage", ex.getMessage());

@@ -149,7 +149,6 @@ public class LoanController {
 
     @GetMapping("/loans/create")
     public String createLoanPage(Model model) {
-        model.addAttribute("currentInterestRate", interestRateService.currentRate().orElse(null));
         return "loan-create";
     }
 
@@ -305,7 +304,7 @@ public class LoanController {
         RedirectAttributes redirectAttributes
     ) {
         try {
-            BigDecimal currentInterestRate = interestRateService.requireCurrentRate();
+            BigDecimal currentInterestRate = interestRateService.requireRateForLoanType(loanTypeId);
             loanService.create(new LoanForm(
                 projectDescription, applicantFirstName, applicantSurname, applicantIdNumber,
                 contactNumber, region, townVillage, membershipStatus, gender, null,

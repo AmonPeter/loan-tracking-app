@@ -1,10 +1,12 @@
 CREATE TABLE loan_types (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
+    interest_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_loan_types_name UNIQUE (name),
+    CONSTRAINT chk_loan_types_interest_rate_non_negative CHECK (interest_rate >= 0),
     CONSTRAINT chk_loan_types_name_not_blank CHECK (length(trim(name)) > 0)
 );
 

@@ -1,5 +1,6 @@
 package com.loan.app.loan;
 
+import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +21,7 @@ public class LoanTypeService {
             SELECT
                 id,
                 name,
+                interest_rate AS interestRate,
                 active,
                 created_at AS createdAt,
                 updated_at AS updatedAt
@@ -36,6 +38,7 @@ public class LoanTypeService {
             SELECT
                 id,
                 name,
+                interest_rate AS interestRate,
                 active,
                 created_at AS createdAt,
                 updated_at AS updatedAt
@@ -46,33 +49,38 @@ public class LoanTypeService {
             .list();
     }
 
-    public void create(String name) {
+    public void create(String name, BigDecimal interestRate) {
         String normalizedName = normalizeName(name);
+        validateInterestRate(interestRate);
         ensureUniqueName(normalizedName, null);
 
         jdbcClient.sql("""
-            INSERT INTO loan_types (name, active, created_at, updated_at)
-            VALUES (:name, TRUE, :now, :now)
+            INSERT INTO loan_types (name, interest_rate, active, created_at, updated_at)
+            VALUES (:name, :interestRate, TRUE, :now, :now)
             """)
             .param("name", normalizedName)
+            .param("interestRate", interestRate)
             .param("now", OffsetDateTime.now())
             .update();
     }
 
-    public void update(long id, String name, boolean active) {
+    public void update(long id, String name, BigDecimal interestRate, boolean active) {
         String normalizedName = normalizeName(name);
+        validateInterestRate(interestRate);
         ensureExists(id);
         ensureUniqueName(normalizedName, id);
 
         jdbcClient.sql("""
             UPDATE loan_types
             SET name = :name,
+                interest_rate = :interestRate,
                 active = :active,
                 updated_at = :updatedAt
             WHERE id = :id
             """)
             .param("id", id)
             .param("name", normalizedName)
+            .param("interestRate", interestRate)
             .param("active", active)
             .param("updatedAt", OffsetDateTime.now())
             .update();
@@ -122,5 +130,14 @@ public class LoanTypeService {
             throw new IllegalArgumentException("Loan type name must be 100 characters or less.");
         }
         return normalized;
+    }
+
+    private void validateInterestRate(BigDecimal interestRate) {
+        if (interestRate == null) {
+            throw new IllegalArgumentException("Interest rate is required.");
+        }
+        if (interestRate.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Interest rate must be zero or greater.");
+        }
     }
 }
