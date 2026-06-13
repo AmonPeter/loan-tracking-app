@@ -34,6 +34,9 @@
                     <li class="nav-item" sec:authorize="hasRole('ADMIN')">
                         <a class="nav-link" th:classappend="${activePage == 'loan-types'} ? ' active'" th:attr="aria-current=${activePage == 'loan-types'} ? 'page' : null" href="/admin/loan-types">Loan Types</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link" th:classappend="${activePage == 'account-password'} ? ' active'" th:attr="aria-current=${activePage == 'account-password'} ? 'page' : null" href="/account/password">Password</a>
+                    </li>
                 </ul>
                 <form class="d-flex" method="post" action="/logout">
                     <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
