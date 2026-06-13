@@ -60,6 +60,14 @@
             color: #075985;
             white-space: nowrap;
         }
+        .pagination {
+            flex-wrap: wrap;
+            gap: 0.2rem;
+        }
+        .pagination .page-link {
+            border-radius: 8px;
+            margin-left: 0;
+        }
     </style>
 </head>
 <body class="bg-body-tertiary">
@@ -197,9 +205,14 @@
                     <li class="page-item" th:classappend="${!hasPrevious} ? ' disabled'">
                         <a class="page-link" th:href="@{/reports/active-loan-portfolio(page=${currentPage - 1},loanType=${selectedLoanType},region=${selectedRegion},healthStatus=${selectedHealthStatus})}">Previous</a>
                     </li>
-                    <li class="page-item" th:each="pageNumber : ${pageNumbers}" th:classappend="${pageNumber == currentPage} ? ' active'">
-                        <a class="page-link" th:href="@{/reports/active-loan-portfolio(page=${pageNumber},loanType=${selectedLoanType},region=${selectedRegion},healthStatus=${selectedHealthStatus})}" th:text="${pageNumber + 1}"></a>
-                    </li>
+                    <th:block th:each="pageNumber : ${pageNumbers}">
+                        <li class="page-item disabled" th:if="${pageNumber == -1}">
+                            <span class="page-link">...</span>
+                        </li>
+                        <li class="page-item" th:if="${pageNumber != -1}" th:classappend="${pageNumber == currentPage} ? ' active'">
+                            <a class="page-link" th:href="@{/reports/active-loan-portfolio(page=${pageNumber},loanType=${selectedLoanType},region=${selectedRegion},healthStatus=${selectedHealthStatus})}" th:text="${pageNumber + 1}"></a>
+                        </li>
+                    </th:block>
                     <li class="page-item" th:classappend="${!hasNext} ? ' disabled'">
                         <a class="page-link" th:href="@{/reports/active-loan-portfolio(page=${currentPage + 1},loanType=${selectedLoanType},region=${selectedRegion},healthStatus=${selectedHealthStatus})}">Next</a>
                     </li>

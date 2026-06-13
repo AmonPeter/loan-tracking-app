@@ -414,7 +414,7 @@ public class LoanService {
 
     public List<QuarterlyFundPerformanceRow> quarterlyFundPerformanceRows(int fromYear, int toYear, String loanType, String region) {
         if (toYear < fromYear) {
-            throw new IllegalArgumentException("To year cannot be before From year.");
+            throw new IllegalArgumentException("End year must be the same as or later than the start year.");
         }
 
         List<LoanView> loans = approvedLoansForReport(loanType, region);
@@ -741,6 +741,8 @@ public class LoanService {
     }
 
     public void update(long id, LoanForm form) {
+        LoanView existingLoan = findById(id).orElseThrow(() -> new IllegalArgumentException("Loan not found."));
+        form = form.withInterestRate(existingLoan.interestRate());
         validate(form, true);
 
         jdbcClient.sql("""
@@ -756,7 +758,6 @@ public class LoanService {
                 membership_status = :membershipStatus,
                 gender = :gender,
                 conditions_precedent = :conditionsPrecedent,
-                interest_rate = :interestRate,
                 loan_type = :loanType,
                 duration_months = :durationMonths,
                 grace_period_days = :gracePeriodDays,
@@ -783,7 +784,6 @@ public class LoanService {
             .param("membershipStatus", form.membershipStatus().trim())
             .param("gender", form.gender().trim())
             .param("conditionsPrecedent", normalizeOptional(form.conditionsPrecedent()))
-            .param("interestRate", form.interestRate())
             .param("loanType", form.loanType().trim())
             .param("durationMonths", form.durationMonths())
             .param("gracePeriodDays", form.gracePeriodDays())

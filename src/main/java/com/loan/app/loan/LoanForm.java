@@ -28,4 +28,31 @@ public record LoanForm(
     Integer repaymentStartYear,
     Integer repaymentStartDate
 ) {
+    public LoanForm withInterestRate(BigDecimal interestRate) {
+        return new LoanForm(
+            projectDescription,
+            applicantFirstName,
+            applicantSurname,
+            applicantIdNumber,
+            contactNumber,
+            region,
+            townVillage,
+            membershipStatus,
+            gender,
+            conditionsPrecedent,
+            interestRate,
+            loanType,
+            durationMonths,
+            gracePeriodDays,
+            loanStatus,
+            loanStatusComment,
+            loanConditions,
+            approvedAmount,
+            disbursedAmount,
+            disbursementDate,
+            repaymentStartMonth,
+            repaymentStartYear,
+            repaymentStartDate
+        );
+    }
 }
