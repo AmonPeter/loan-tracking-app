@@ -45,7 +45,8 @@ public class LoanService {
                 gender,
                 conditions_precedent AS conditionsPrecedent,
                 interest_rate AS interestRate,
-                loan_type AS loanType,
+                loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                 duration_months AS durationMonths,
                 grace_period_days AS gracePeriodDays,
                 loan_status AS loanStatus,
@@ -89,7 +90,8 @@ public class LoanService {
                     gender,
                     conditions_precedent AS conditionsPrecedent,
                     interest_rate AS interestRate,
-                    loan_type AS loanType,
+                    loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                     duration_months AS durationMonths,
                     grace_period_days AS gracePeriodDays,
                     loan_status AS loanStatus,
@@ -128,7 +130,8 @@ public class LoanService {
                 gender,
                 conditions_precedent AS conditionsPrecedent,
                 interest_rate AS interestRate,
-                loan_type AS loanType,
+                loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                 duration_months AS durationMonths,
                 grace_period_days AS gracePeriodDays,
                 loan_status AS loanStatus,
@@ -191,7 +194,8 @@ public class LoanService {
                 gender,
                 conditions_precedent AS conditionsPrecedent,
                 interest_rate AS interestRate,
-                loan_type AS loanType,
+                loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                 duration_months AS durationMonths,
                 grace_period_days AS gracePeriodDays,
                 loan_status AS loanStatus,
@@ -232,7 +236,8 @@ public class LoanService {
                 gender,
                 conditions_precedent AS conditionsPrecedent,
                 interest_rate AS interestRate,
-                loan_type AS loanType,
+                loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                 duration_months AS durationMonths,
                 grace_period_days AS gracePeriodDays,
                 loan_status AS loanStatus,
@@ -298,14 +303,13 @@ public class LoanService {
         return total == null ? BigDecimal.ZERO : total;
     }
 
-    public List<LoanReportRow> reportRows(LocalDate fromDate, LocalDate toDate, String loanType, String region) {
+    public List<LoanReportRow> reportRows(LocalDate fromDate, LocalDate toDate, Long loanTypeId, String region) {
         LocalDate startDate = fromDate == null ? LocalDate.now().withDayOfMonth(1) : fromDate;
         LocalDate endDate = toDate == null ? startDate.withDayOfMonth(startDate.lengthOfMonth()) : toDate;
         if (endDate.isBefore(startDate)) {
             throw new IllegalArgumentException("To date cannot be before From date.");
         }
 
-        String normalizedLoanType = normalizeOptional(loanType);
         String normalizedRegion = normalizeOptional(region);
 
         StringBuilder sql = new StringBuilder("""
@@ -322,7 +326,8 @@ public class LoanService {
                 gender,
                 conditions_precedent AS conditionsPrecedent,
                 interest_rate AS interestRate,
-                loan_type AS loanType,
+                loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                 duration_months AS durationMonths,
                 grace_period_days AS gracePeriodDays,
                 loan_status AS loanStatus,
@@ -337,8 +342,8 @@ public class LoanService {
             FROM loans
             WHERE loan_status = 'Approved'
             """);
-        if (normalizedLoanType != null) {
-            sql.append(" AND loan_type = :loanType");
+        if (loanTypeId != null) {
+            sql.append(" AND loan_type_id = :loanTypeId");
         }
         if (normalizedRegion != null) {
             sql.append(" AND region = :region");
@@ -346,8 +351,8 @@ public class LoanService {
         sql.append(" ORDER BY id DESC");
 
         var statement = jdbcClient.sql(sql.toString());
-        if (normalizedLoanType != null) {
-            statement = statement.param("loanType", normalizedLoanType);
+        if (loanTypeId != null) {
+            statement = statement.param("loanTypeId", loanTypeId);
         }
         if (normalizedRegion != null) {
             statement = statement.param("region", normalizedRegion);
@@ -412,12 +417,12 @@ public class LoanService {
         return rows;
     }
 
-    public List<QuarterlyFundPerformanceRow> quarterlyFundPerformanceRows(int fromYear, int toYear, String loanType, String region) {
+    public List<QuarterlyFundPerformanceRow> quarterlyFundPerformanceRows(int fromYear, int toYear, Long loanTypeId, String region) {
         if (toYear < fromYear) {
             throw new IllegalArgumentException("End year must be the same as or later than the start year.");
         }
 
-        List<LoanView> loans = approvedLoansForReport(loanType, region);
+        List<LoanView> loans = approvedLoansForReport(loanTypeId, region);
         if (loans.isEmpty()) {
             return List.of();
         }
@@ -481,10 +486,10 @@ public class LoanService {
         return rows;
     }
 
-    public List<ActiveLoanPortfolioRow> activeLoanPortfolioRows(String loanType, String region, String healthStatus) {
+    public List<ActiveLoanPortfolioRow> activeLoanPortfolioRows(Long loanTypeId, String region, String healthStatus) {
         String normalizedHealthStatus = normalizeOptional(healthStatus);
         LocalDate today = LocalDate.now();
-        List<LoanView> loans = approvedLoansForReport(loanType, region);
+        List<LoanView> loans = approvedLoansForReport(loanTypeId, region);
         if (loans.isEmpty()) {
             return List.of();
         }
@@ -608,7 +613,8 @@ public class LoanService {
                 gender,
                 conditions_precedent AS conditionsPrecedent,
                 interest_rate AS interestRate,
-                loan_type AS loanType,
+                loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                 duration_months AS durationMonths,
                 grace_period_days AS gracePeriodDays,
                 loan_status AS loanStatus,
@@ -673,7 +679,8 @@ public class LoanService {
                 gender,
                 conditions_precedent AS conditionsPrecedent,
                 interest_rate AS interestRate,
-                loan_type AS loanType,
+                loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                 duration_months AS durationMonths,
                 grace_period_days AS gracePeriodDays,
                 loan_status AS loanStatus,
@@ -702,13 +709,13 @@ public class LoanService {
                 project_description, applicant_first_name, applicant_surname,
                 applicant_id_number, contact_number, region, town_village,
                 membership_status, gender, conditions_precedent, interest_rate,
-                loan_type, duration_months, grace_period_days, loan_status, loan_status_comment, loan_conditions,
+                loan_type_id, duration_months, grace_period_days, loan_status, loan_status_comment, loan_conditions,
                 approved_amount, disbursed_amount, disbursement_date, repayment_start_month, repayment_start_year, repayment_start_date, created_at, updated_at
             ) VALUES (
                 :projectDescription, :applicantFirstName, :applicantSurname,
                 :applicantIdNumber, :contactNumber, :region, :townVillage,
                 :membershipStatus, :gender, :conditionsPrecedent, :interestRate,
-                :loanType, :durationMonths, :gracePeriodDays, :loanStatus, :loanStatusComment, :loanConditions,
+                :loanTypeId, :durationMonths, :gracePeriodDays, :loanStatus, :loanStatusComment, :loanConditions,
                 :approvedAmount, :disbursedAmount, :disbursementDate, :repaymentStartMonth, :repaymentStartYear, :repaymentStartDate, :createdAt, :updatedAt
             )
             """)
@@ -723,7 +730,7 @@ public class LoanService {
             .param("gender", form.gender().trim())
             .param("conditionsPrecedent", normalizeOptional(form.conditionsPrecedent()))
             .param("interestRate", form.interestRate())
-            .param("loanType", form.loanType().trim())
+            .param("loanTypeId", form.loanTypeId())
             .param("durationMonths", form.durationMonths())
             .param("gracePeriodDays", form.gracePeriodDays())
             .param("loanStatus", "Initiation")
@@ -758,7 +765,7 @@ public class LoanService {
                 membership_status = :membershipStatus,
                 gender = :gender,
                 conditions_precedent = :conditionsPrecedent,
-                loan_type = :loanType,
+                loan_type_id = :loanTypeId,
                 duration_months = :durationMonths,
                 grace_period_days = :gracePeriodDays,
                 loan_status = :loanStatus,
@@ -784,7 +791,7 @@ public class LoanService {
             .param("membershipStatus", form.membershipStatus().trim())
             .param("gender", form.gender().trim())
             .param("conditionsPrecedent", normalizeOptional(form.conditionsPrecedent()))
-            .param("loanType", form.loanType().trim())
+            .param("loanTypeId", form.loanTypeId())
             .param("durationMonths", form.durationMonths())
             .param("gracePeriodDays", form.gracePeriodDays())
             .param("loanStatus", form.loanStatus().trim())
@@ -973,7 +980,7 @@ public class LoanService {
         requireText(form.townVillage(), "Town/Village is required.");
         requireText(form.membershipStatus(), "Membership Status is required.");
         requireText(form.gender(), "Gender is required.");
-        requireText(form.loanType(), "Loan Type is required.");
+        requireLoanType(form.loanTypeId());
         if (form.durationMonths() == null || (form.durationMonths() != 12 && form.durationMonths() != 36)) {
             throw new IllegalArgumentException("Duration must be 12 or 36 months.");
         }
@@ -1023,6 +1030,27 @@ public class LoanService {
         }
     }
 
+    private void requireLoanType(Long loanTypeId) {
+        if (loanTypeId == null) {
+            throw new IllegalArgumentException("Loan Type is required.");
+        }
+
+        Boolean exists = jdbcClient.sql("""
+            SELECT EXISTS (
+                SELECT 1
+                FROM loan_types
+                WHERE id = :loanTypeId
+                  AND active = TRUE
+            )
+            """)
+            .param("loanTypeId", loanTypeId)
+            .query(Boolean.class)
+            .single();
+        if (!Boolean.TRUE.equals(exists)) {
+            throw new IllegalArgumentException("Loan Type is invalid.");
+        }
+    }
+
     private String normalizeOptional(String value) {
         return (value == null || value.isBlank()) ? null : value.trim();
     }
@@ -1034,8 +1062,7 @@ public class LoanService {
         return "%" + value.trim().toLowerCase(Locale.ROOT) + "%";
     }
 
-    private List<LoanView> approvedLoansForReport(String loanType, String region) {
-        String normalizedLoanType = normalizeOptional(loanType);
+    private List<LoanView> approvedLoansForReport(Long loanTypeId, String region) {
         String normalizedRegion = normalizeOptional(region);
 
         StringBuilder sql = new StringBuilder("""
@@ -1052,7 +1079,8 @@ public class LoanService {
                 gender,
                 conditions_precedent AS conditionsPrecedent,
                 interest_rate AS interestRate,
-                loan_type AS loanType,
+                loan_type_id AS loanTypeId,
+                    (SELECT name FROM loan_types WHERE id = loans.loan_type_id) AS loanType,
                 duration_months AS durationMonths,
                 grace_period_days AS gracePeriodDays,
                 loan_status AS loanStatus,
@@ -1067,8 +1095,8 @@ public class LoanService {
             FROM loans
             WHERE loan_status = 'Approved'
             """);
-        if (normalizedLoanType != null) {
-            sql.append(" AND loan_type = :loanType");
+        if (loanTypeId != null) {
+            sql.append(" AND loan_type_id = :loanTypeId");
         }
         if (normalizedRegion != null) {
             sql.append(" AND region = :region");
@@ -1076,8 +1104,8 @@ public class LoanService {
         sql.append(" ORDER BY id DESC");
 
         var statement = jdbcClient.sql(sql.toString());
-        if (normalizedLoanType != null) {
-            statement = statement.param("loanType", normalizedLoanType);
+        if (loanTypeId != null) {
+            statement = statement.param("loanTypeId", loanTypeId);
         }
         if (normalizedRegion != null) {
             statement = statement.param("region", normalizedRegion);

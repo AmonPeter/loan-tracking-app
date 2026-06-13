@@ -117,9 +117,9 @@
                 </div>
                 <div class="col-12 col-md-4">
                     <label class="form-label">Loan Type</label>
-                    <select name="loanType" class="form-select" required>
+                    <select name="loanTypeId" class="form-select" required>
                         <option value="" selected disabled>Select loan type</option>
-                        <option th:each="loanType : ${loanTypes}" th:value="${loanType}" th:text="${loanType}"></option>
+                        <option th:each="loanType : ${loanTypes}" th:value="${loanType.id}" th:text="${loanType.name}"></option>
                     </select>
                 </div>
                 <div class="col-12 col-md-4">

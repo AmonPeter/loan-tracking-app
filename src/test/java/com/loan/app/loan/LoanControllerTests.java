@@ -19,7 +19,7 @@ class LoanControllerTests {
     @Test
     void reportsRejectsEndDateBeforeStartDateWithoutCallingService() {
         RecordingLoanService loanService = new RecordingLoanService();
-        LoanController controller = new LoanController(loanService, new StubInterestRateService());
+        LoanController controller = new LoanController(loanService, new StubInterestRateService(), new StubLoanTypeService());
         Model model = new ExtendedModelMap();
 
         String view = controller.reports(0, 12, 2026, 1, 2026, null, null, model);
@@ -34,7 +34,7 @@ class LoanControllerTests {
     @Test
     void quarterlyFundPerformanceRejectsEndYearBeforeStartYearWithoutCallingService() {
         RecordingLoanService loanService = new RecordingLoanService();
-        LoanController controller = new LoanController(loanService, new StubInterestRateService());
+        LoanController controller = new LoanController(loanService, new StubInterestRateService(), new StubLoanTypeService());
         Model model = new ExtendedModelMap();
 
         String view = controller.quarterlyFundPerformanceReport(2026, 2025, null, null, model);
@@ -48,7 +48,7 @@ class LoanControllerTests {
     @Test
     void createLoanUsesCurrentConfiguredInterestRate() {
         RecordingLoanService loanService = new RecordingLoanService();
-        LoanController controller = new LoanController(loanService, new StubInterestRateService());
+        LoanController controller = new LoanController(loanService, new StubInterestRateService(), new StubLoanTypeService());
         RedirectAttributes redirectAttributes = new RedirectAttributesModelMap();
 
         String redirect = controller.createLoan(
@@ -61,13 +61,14 @@ class LoanControllerTests {
             "Windhoek",
             "Member",
             "Female",
-            "Micro loan",
+            1L,
             12,
             redirectAttributes
         );
 
         assertEquals("redirect:/loans", redirect);
         assertEquals(BigDecimal.TEN, loanService.createdForm.interestRate());
+        assertEquals(1L, loanService.createdForm.loanTypeId());
     }
 
     private static class RecordingLoanService extends LoanService {
@@ -79,7 +80,7 @@ class LoanControllerTests {
         }
 
         @Override
-        public List<LoanReportRow> reportRows(LocalDate fromDate, LocalDate toDate, String loanType, String region) {
+        public List<LoanReportRow> reportRows(LocalDate fromDate, LocalDate toDate, Long loanTypeId, String region) {
             called = true;
             return List.of();
         }
@@ -88,7 +89,7 @@ class LoanControllerTests {
         public List<QuarterlyFundPerformanceRow> quarterlyFundPerformanceRows(
             int fromYear,
             int toYear,
-            String loanType,
+            Long loanTypeId,
             String region
         ) {
             called = true;
@@ -115,6 +116,17 @@ class LoanControllerTests {
         @Override
         public BigDecimal requireCurrentRate() {
             return BigDecimal.TEN;
+        }
+    }
+
+    private static class StubLoanTypeService extends LoanTypeService {
+        private StubLoanTypeService() {
+            super(null);
+        }
+
+        @Override
+        public List<LoanTypeView> findActive() {
+            return List.of(new LoanTypeView(1L, "Micro loan", true, null, null));
         }
     }
 }

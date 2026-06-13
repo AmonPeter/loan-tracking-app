@@ -8,8 +8,6 @@ databaseChangeLog:
   - include:
       file: db/changelog/sql/004-loans.sql
   - include:
-      file: db/changelog/sql/005-loans-dummy-data.sql
-  - include:
       file: db/changelog/sql/006-loans-duration.sql
   - include:
       file: db/changelog/sql/007-loans-grace-period.sql
@@ -22,6 +20,6 @@ databaseChangeLog:
   - include:
       file: db/changelog/sql/011-loans-disbursement-date.sql
   - include:
-      file: db/changelog/sql/012-loans-bulk-test-data.sql
-  - include:
       file: db/changelog/sql/013-interest-rate-settings.sql
+  - include:
+      file: db/changelog/sql/014-loan-types.sql

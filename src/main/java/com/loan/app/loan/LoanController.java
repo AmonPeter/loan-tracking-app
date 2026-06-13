@@ -44,12 +44,6 @@ public class LoanController {
         "Zambezi"
     );
     private static final List<String> GENDERS = List.of("Male", "Female");
-    private static final List<String> LOAN_TYPES = List.of(
-        "Micro loan",
-        "Education Support loan",
-        "SME loan",
-        "Not Stated"
-    );
     private static final List<Integer> LOAN_DURATIONS = List.of(12, 36);
     private static final List<Integer> GRACE_PERIOD_DAYS = List.of(30, 60, 90, 120, 160, 180, 210);
     private static final List<String> LOAN_STATUSES = List.of(
@@ -73,10 +67,12 @@ public class LoanController {
 
     private final LoanService loanService;
     private final InterestRateService interestRateService;
+    private final LoanTypeService loanTypeService;
 
-    public LoanController(LoanService loanService, InterestRateService interestRateService) {
+    public LoanController(LoanService loanService, InterestRateService interestRateService, LoanTypeService loanTypeService) {
         this.loanService = loanService;
         this.interestRateService = interestRateService;
+        this.loanTypeService = loanTypeService;
     }
 
     @ModelAttribute("regions")
@@ -90,8 +86,8 @@ public class LoanController {
     }
 
     @ModelAttribute("loanTypes")
-    public List<String> loanTypes() {
-        return LOAN_TYPES;
+    public List<LoanTypeView> loanTypes() {
+        return loanTypeService.findActive();
     }
 
     @ModelAttribute("loanDurations")
@@ -174,7 +170,7 @@ public class LoanController {
         @RequestParam(required = false) Integer fromYear,
         @RequestParam(required = false) Integer toMonth,
         @RequestParam(required = false) Integer toYear,
-        @RequestParam(required = false) String loanType,
+        @RequestParam(required = false) Long loanTypeId,
         @RequestParam(required = false) String region,
         Model model
     ) {
@@ -189,7 +185,7 @@ public class LoanController {
         if (selectedToDate.isBefore(selectedFromDate)) {
             model.addAttribute("errorMessage", "To date cannot be before From date.");
         } else {
-            rows = loanService.reportRows(selectedFromDate, selectedToDate, loanType, region);
+            rows = loanService.reportRows(selectedFromDate, selectedToDate, loanTypeId, region);
         }
         int totalPages = (int) Math.max(1, Math.ceil((double) rows.size() / REPORTS_PAGE_SIZE));
         int currentPage = Math.min(Math.max(page, 0), totalPages - 1);
@@ -202,7 +198,7 @@ public class LoanController {
         model.addAttribute("selectedFromYear", selectedFromYear);
         model.addAttribute("selectedToMonth", selectedToMonth);
         model.addAttribute("selectedToYear", selectedToYear);
-        model.addAttribute("selectedLoanType", loanType == null ? "" : loanType);
+        model.addAttribute("selectedLoanTypeId", loanTypeId == null ? "" : loanTypeId);
         model.addAttribute("selectedRegion", region == null ? "" : region);
         model.addAttribute("rows", rows.subList(fromIndex, toIndex));
         model.addAttribute("currentPage", currentPage);
@@ -218,7 +214,7 @@ public class LoanController {
     public String quarterlyFundPerformanceReport(
         @RequestParam(required = false) Integer fromYear,
         @RequestParam(required = false) Integer toYear,
-        @RequestParam(required = false) String loanType,
+        @RequestParam(required = false) Long loanTypeId,
         @RequestParam(required = false) String region,
         Model model
     ) {
@@ -229,13 +225,13 @@ public class LoanController {
         if (selectedToYear < selectedFromYear) {
             model.addAttribute("errorMessage", "End year must be the same as or later than the start year.");
         } else {
-            rows = loanService.quarterlyFundPerformanceRows(selectedFromYear, selectedToYear, loanType, region);
+            rows = loanService.quarterlyFundPerformanceRows(selectedFromYear, selectedToYear, loanTypeId, region);
         }
 
         model.addAttribute("reportYears", IntStream.rangeClosed(today.getYear() - 5, today.getYear() + 10).boxed().toList());
         model.addAttribute("selectedFromYear", selectedFromYear);
         model.addAttribute("selectedToYear", selectedToYear);
-        model.addAttribute("selectedLoanType", loanType == null ? "" : loanType);
+        model.addAttribute("selectedLoanTypeId", loanTypeId == null ? "" : loanTypeId);
         model.addAttribute("selectedRegion", region == null ? "" : region);
         model.addAttribute("quarterlyRows", rows);
         return "quarterly-fund-performance";
@@ -244,18 +240,18 @@ public class LoanController {
     @GetMapping("/reports/active-loan-portfolio")
     public String activeLoanPortfolioReport(
         @RequestParam(defaultValue = "0") int page,
-        @RequestParam(required = false) String loanType,
+        @RequestParam(required = false) Long loanTypeId,
         @RequestParam(required = false) String region,
         @RequestParam(required = false) String healthStatus,
         Model model
     ) {
-        List<ActiveLoanPortfolioRow> rows = loanService.activeLoanPortfolioRows(loanType, region, healthStatus);
+        List<ActiveLoanPortfolioRow> rows = loanService.activeLoanPortfolioRows(loanTypeId, region, healthStatus);
         int totalPages = (int) Math.max(1, Math.ceil((double) rows.size() / ACTIVE_PORTFOLIO_PAGE_SIZE));
         int currentPage = Math.min(Math.max(page, 0), totalPages - 1);
         int fromIndex = Math.min(currentPage * ACTIVE_PORTFOLIO_PAGE_SIZE, rows.size());
         int toIndex = Math.min(fromIndex + ACTIVE_PORTFOLIO_PAGE_SIZE, rows.size());
 
-        model.addAttribute("selectedLoanType", loanType == null ? "" : loanType);
+        model.addAttribute("selectedLoanTypeId", loanTypeId == null ? "" : loanTypeId);
         model.addAttribute("selectedRegion", region == null ? "" : region);
         model.addAttribute("selectedHealthStatus", healthStatus == null ? "" : healthStatus);
         model.addAttribute("rows", rows.subList(fromIndex, toIndex));
@@ -304,7 +300,7 @@ public class LoanController {
         @RequestParam String townVillage,
         @RequestParam String membershipStatus,
         @RequestParam String gender,
-        @RequestParam String loanType,
+        @RequestParam Long loanTypeId,
         @RequestParam Integer durationMonths,
         RedirectAttributes redirectAttributes
     ) {
@@ -313,7 +309,7 @@ public class LoanController {
             loanService.create(new LoanForm(
                 projectDescription, applicantFirstName, applicantSurname, applicantIdNumber,
                 contactNumber, region, townVillage, membershipStatus, gender, null,
-                currentInterestRate, loanType, durationMonths, 30, "Initiation", null, null,
+                currentInterestRate, loanTypeId, durationMonths, 30, "Initiation", null, null,
                 BigDecimal.ZERO, BigDecimal.ZERO, null, null, null, null
             ));
             redirectAttributes.addFlashAttribute("successMessage", "Loan created.");
@@ -337,7 +333,7 @@ public class LoanController {
         @RequestParam String membershipStatus,
         @RequestParam String gender,
         @RequestParam(required = false) String conditionsPrecedent,
-        @RequestParam String loanType,
+        @RequestParam Long loanTypeId,
         @RequestParam Integer durationMonths,
         @RequestParam Integer gracePeriodDays,
         @RequestParam String loanStatus,
@@ -355,7 +351,7 @@ public class LoanController {
             loanService.update(id, new LoanForm(
                 projectDescription, applicantFirstName, applicantSurname, applicantIdNumber,
                 contactNumber, region, townVillage, membershipStatus, gender, conditionsPrecedent,
-                null, loanType, durationMonths, gracePeriodDays, loanStatus, loanStatusComment, loanConditions,
+                null, loanTypeId, durationMonths, gracePeriodDays, loanStatus, loanStatusComment, loanConditions,
                 approvedAmount, disbursedAmount, disbursementDate, repaymentStartMonth, repaymentStartYear, repaymentStartDate
             ));
             redirectAttributes.addFlashAttribute("successMessage", "Loan updated.");

@@ -1,3 +1,45 @@
+CREATE TABLE IF NOT EXISTS loan_types (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_loan_types_name UNIQUE (name),
+    CONSTRAINT chk_loan_types_name_not_blank CHECK (length(trim(name)) > 0)
+);
+
+INSERT INTO loan_types (name) VALUES
+('Micro loan'),
+('Education Support loan'),
+('SME loan'),
+('Not Stated')
+ON CONFLICT (name) DO UPDATE
+SET active = TRUE,
+    updated_at = CURRENT_TIMESTAMP;
+
+TRUNCATE TABLE loan_repayments RESTART IDENTITY CASCADE;
+TRUNCATE TABLE loans RESTART IDENTITY CASCADE;
+
+ALTER TABLE loans DROP COLUMN IF EXISTS loan_type;
+ALTER TABLE loans ADD COLUMN IF NOT EXISTS loan_type_id BIGINT;
+ALTER TABLE loans ALTER COLUMN loan_type_id SET NOT NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_loans_loan_type'
+    ) THEN
+        ALTER TABLE loans
+            ADD CONSTRAINT fk_loans_loan_type
+            FOREIGN KEY (loan_type_id)
+            REFERENCES loan_types (id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_loans_loan_type_id ON loans (loan_type_id);
+
 WITH seed AS (
     SELECT
         g,
@@ -5,7 +47,7 @@ WITH seed AS (
         (ARRAY['Nambinga','Shilongo','Kandjii','Uushona','Munuandjua','Nekundi','Nghipandulwa','Shivute','Katjiuanjo','Amutenya','Nakashole','Haikera','Shikongo','Mbenzi','Nande','Kaaronda','Nghituwamata','Iitula','Hamukwaya','Tjipangandjara'])[((g * 7 - 1) % 20) + 1] AS applicant_surname,
         (ARRAY['Khomas','Oshana','Erongo','Omusati','Omaheke','Hardap','Ohangwena','Oshikoto','Otjozondjupa','Kavango East','Zambezi','Kavango West','Kunene','Karas'])[((g * 5 - 1) % 14) + 1] AS region,
         (ARRAY['Windhoek','Ondangwa','Walvis Bay','Outapi','Gobabis','Mariental','Eenhana','Tsumeb','Otjiwarongo','Rundu','Katima Mulilo','Nkurenkuru','Opuwo','Keetmanshoop'])[((g * 5 - 1) % 14) + 1] AS town_village,
-        (ARRAY['Micro loan','Education Support loan','SME loan','Not Stated'])[((g * 11 - 1) % 4) + 1] AS loan_type,
+        (ARRAY['Micro loan','Education Support loan','SME loan','Not Stated'])[((g * 11 - 1) % 4) + 1] AS loan_type_name,
         (ARRAY['Member','Dependent','Registered Ex Member'])[((g * 13 - 1) % 3) + 1] AS membership_status,
         (ARRAY['Male','Female'])[((g * 17 - 1) % 2) + 1] AS gender,
         (ARRAY[30,60,90,120,160,180,210])[((g * 19 - 1) % 7) + 1] AS grace_period_days,
@@ -19,53 +61,54 @@ WITH seed AS (
 ),
 loan_data AS (
     SELECT
-        g,
-        'Generated testing loan #' || g AS project_description,
-        applicant_first_name,
-        applicant_surname,
-        'TEST' || lpad((1000000 + g)::text, 7, '0') AS applicant_id_number,
-        '+26481' || lpad((2000000 + g)::text, 7, '0') AS contact_number,
-        region,
-        town_village,
-        membership_status,
-        gender,
+        seed.g,
+        'Generated testing loan #' || seed.g AS project_description,
+        seed.applicant_first_name,
+        seed.applicant_surname,
+        'TEST' || lpad((1000000 + seed.g)::text, 7, '0') AS applicant_id_number,
+        '+26481' || lpad((2000000 + seed.g)::text, 7, '0') AS contact_number,
+        seed.region,
+        seed.town_village,
+        seed.membership_status,
+        seed.gender,
         CASE
-            WHEN g % 6 = 0 THEN 'Supplier quote pending'
-            WHEN g % 6 = 1 THEN 'Income verification complete'
-            WHEN g % 6 = 2 THEN 'Committee approval required'
+            WHEN seed.g % 6 = 0 THEN 'Supplier quote pending'
+            WHEN seed.g % 6 = 1 THEN 'Income verification complete'
+            WHEN seed.g % 6 = 2 THEN 'Committee approval required'
             ELSE NULL
         END AS conditions_precedent,
         CASE
-            WHEN loan_type = 'Education Support loan' THEN (4.00 + ((g * 23) % 325) / 100.0)::numeric(5,2)
-            WHEN loan_type = 'SME loan' THEN (9.50 + ((g * 29) % 700) / 100.0)::numeric(5,2)
-            WHEN loan_type = 'Micro loan' THEN (8.00 + ((g * 31) % 850) / 100.0)::numeric(5,2)
-            ELSE (6.50 + ((g * 37) % 600) / 100.0)::numeric(5,2)
+            WHEN seed.loan_type_name = 'Education Support loan' THEN (4.00 + ((seed.g * 23) % 325) / 100.0)::numeric(5,2)
+            WHEN seed.loan_type_name = 'SME loan' THEN (9.50 + ((seed.g * 29) % 700) / 100.0)::numeric(5,2)
+            WHEN seed.loan_type_name = 'Micro loan' THEN (8.00 + ((seed.g * 31) % 850) / 100.0)::numeric(5,2)
+            ELSE (6.50 + ((seed.g * 37) % 600) / 100.0)::numeric(5,2)
         END AS interest_rate,
-        loan_type,
-        CASE WHEN g % 3 = 0 THEN 36 ELSE 12 END AS duration_months,
-        grace_period_days,
-        loan_status,
-        CASE loan_status
+        loan_types.id AS loan_type_id,
+        CASE WHEN seed.g % 3 = 0 THEN 36 ELSE 12 END AS duration_months,
+        seed.grace_period_days,
+        seed.loan_status,
+        CASE seed.loan_status
             WHEN 'Approved' THEN 'Generated test approval with varied repayment behavior'
             WHEN 'Declined' THEN 'Generated test decline scenario'
             WHEN 'Withdrawn' THEN 'Generated test withdrawal scenario'
             ELSE 'Generated test application in progress'
         END AS loan_status_comment,
         CASE
-            WHEN loan_status = 'Approved' AND g % 4 = 0 THEN 'Monthly repayment monitoring required'
-            WHEN loan_status = 'Approved' AND g % 4 = 1 THEN 'Quarterly business update required'
+            WHEN seed.loan_status = 'Approved' AND seed.g % 4 = 0 THEN 'Monthly repayment monitoring required'
+            WHEN seed.loan_status = 'Approved' AND seed.g % 4 = 1 THEN 'Quarterly business update required'
             ELSE NULL
         END AS loan_conditions,
-        (5000 + ((g * 7919) % 2450) * 100)::numeric(19,2) AS approved_amount,
+        (5000 + ((seed.g * 7919) % 2450) * 100)::numeric(19,2) AS approved_amount,
         CASE
-            WHEN loan_status = 'Approved' THEN round(((5000 + ((g * 7919) % 2450) * 100) * (60 + ((g * 43) % 41)) / 100.0)::numeric, 2)
+            WHEN seed.loan_status = 'Approved' THEN round(((5000 + ((seed.g * 7919) % 2450) * 100) * (60 + ((seed.g * 43) % 41)) / 100.0)::numeric, 2)
             ELSE 0::numeric(19,2)
         END AS disbursed_amount,
         CASE
-            WHEN loan_status = 'Approved' THEN current_date - ((g * 13) % 1460)
+            WHEN seed.loan_status = 'Approved' THEN current_date - ((seed.g * 13) % 1460)
             ELSE NULL
         END AS disbursement_date
     FROM seed
+    JOIN loan_types ON loan_types.name = seed.loan_type_name
 ),
 scheduled_loan_data AS (
     SELECT
@@ -85,7 +128,7 @@ INSERT INTO loans (
     gender,
     conditions_precedent,
     interest_rate,
-    loan_type,
+    loan_type_id,
     duration_months,
     grace_period_days,
     loan_status,
@@ -112,7 +155,7 @@ SELECT
     gender,
     conditions_precedent,
     interest_rate,
-    loan_type,
+    loan_type_id,
     duration_months,
     grace_period_days,
     loan_status,
@@ -126,12 +169,7 @@ SELECT
     CASE WHEN g % 2 = 0 THEN 1 ELSE 15 END,
     COALESCE(disbursement_date, current_date - ((g * 13) % 365))::timestamp,
     CURRENT_TIMESTAMP
-FROM scheduled_loan_data
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM loans existing_loan
-    WHERE existing_loan.applicant_id_number = scheduled_loan_data.applicant_id_number
-);
+FROM scheduled_loan_data;
 
 WITH test_loans AS (
     SELECT
@@ -222,10 +260,4 @@ SELECT
 FROM coverage_plan
 CROSS JOIN LATERAL generate_series(1, coverage_plan.covered_installments) AS payment_number
 WHERE coverage_plan.covered_installments > 0
-  AND coverage_plan.monthly_installment > 0
-  AND NOT EXISTS (
-      SELECT 1
-      FROM loan_repayments existing_repayment
-      WHERE existing_repayment.loan_id = coverage_plan.loan_id
-        AND existing_repayment.payment_note LIKE 'Generated test repayment%'
-  );
+  AND coverage_plan.monthly_installment > 0;

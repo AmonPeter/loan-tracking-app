@@ -64,9 +64,9 @@
                 </div>
                 <div class="col-12 col-md-3">
                     <label class="form-label">Loan Type</label>
-                    <select name="loanType" class="form-select">
+                    <select name="loanTypeId" class="form-select">
                         <option value="">All loan types</option>
-                        <option th:each="loanTypeOption : ${loanTypes}" th:value="${loanTypeOption}" th:text="${loanTypeOption}" th:selected="${loanTypeOption == selectedLoanType}"></option>
+                        <option th:each="loanTypeOption : ${loanTypes}" th:value="${loanTypeOption.id}" th:text="${loanTypeOption.name}" th:selected="${loanTypeOption.id == selectedLoanTypeId}"></option>
                     </select>
                 </div>
                 <div class="col-12 col-md-3">

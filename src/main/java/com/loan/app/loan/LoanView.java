@@ -16,6 +16,7 @@ public record LoanView(
     String gender,
     String conditionsPrecedent,
     BigDecimal interestRate,
+    Long loanTypeId,
     String loanType,
     Integer durationMonths,
     Integer gracePeriodDays,
