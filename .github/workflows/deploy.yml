@@ -57,7 +57,7 @@ jobs:
           TZ='Africa/Windhoek'
           JAVA_TOOL_OPTIONS='-Duser.timezone=Africa/Windhoek'
           SPRING_PROFILES_ACTIVE='server'
-          SPRING_DATASOURCE_USERNAME='rental_user'
+          SPRING_DATASOURCE_USERNAME='my_user'
           SPRING_DATASOURCE_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
           ENVEOF
             chmod 600 app.env
@@ -73,11 +73,9 @@ jobs:
             fi
 
             install -m 755 "$JAR_PATH" '${{ env.DEPLOY_DIR }}/${{ env.APP_NAME }}.jar'
-            install -m 644 src/main/resources/opentelemetry-jar/grafana-opentelemetry-java.jar '${{ env.DEPLOY_DIR }}/grafana-opentelemetry-javaagent.jar'
 
             PID_FILE='${{ env.DEPLOY_DIR }}/${{ env.APP_NAME }}.pid'
             LOG_FILE='${{ env.DEPLOY_DIR }}/logs/${{ env.APP_NAME }}.log'
-            AGENT_PATH='${{ env.DEPLOY_DIR }}/grafana-opentelemetry-javaagent.jar'
             mkdir -p "$(dirname "$LOG_FILE")"
             touch "$LOG_FILE"
 
@@ -129,7 +127,6 @@ jobs:
 
             echo "Starting application"
             nohup java \
-              -javaagent:"$AGENT_PATH" \
               -Dspring.profiles.active=server \
               -Dotel.resource.attributes=deployment.environment=production \
               -jar '${{ env.DEPLOY_DIR }}/${{ env.APP_NAME }}.jar' >> "$LOG_FILE" 2>&1 &
