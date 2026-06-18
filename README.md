@@ -22,3 +22,14 @@ of 30 days, when is my first repayment.
 3. Overall interest for everyone (for this month)
 4. Beginning of months, how much was owed to you, interest to be earned, repayments.
 5. Opening balance + interest - repayment = amount owed to you (closing balance).
+
+
+ssh root@142.93.245.172
+
+
+CREATE ROLE my_user WITH LOGIN PASSWORD 'the_password';
+CREATE DATABASE loan_app OWNER my_user;
+
+psql -U my_user -d loan_app -h localhost
+
+

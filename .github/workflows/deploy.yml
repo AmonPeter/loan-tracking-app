@@ -1,0 +1,137 @@
+name: Build and Deploy to DigitalOcean Droplet
+
+on:
+  push:
+    branches: [main]
+
+env:
+  DEPLOY_DIR: /opt/loan-tracking-app
+  APP_NAME: loan-tracking-app
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DROPLET_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DROPLET_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload source to Droplet
+        run: |
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='.idea' \
+            --exclude='target' \
+            -czf /tmp/loan-tracking-app.tar.gz \
+            .
+
+          ssh -i ~/.ssh/deploy_key "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}" \
+            "mkdir -p '${{ env.DEPLOY_DIR }}'"
+
+          scp -i ~/.ssh/deploy_key /tmp/loan-tracking-app.tar.gz \
+            "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}:${{ env.DEPLOY_DIR }}/app.tar.gz"
+
+      - name: Build and deploy on Droplet
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.DROPLET_USER }}@${{ secrets.DROPLET_HOST }}" << 'EOF'
+            set -euo pipefail
+
+            cd '${{ env.DEPLOY_DIR }}'
+
+            mkdir -p .m2 logs
+            rm -rf source
+            mkdir -p source
+            tar -xzf app.tar.gz -C source
+            rm -f app.tar.gz
+            cd source
+
+            cat > app.env << ENVEOF
+          TZ='Africa/Windhoek'
+          JAVA_TOOL_OPTIONS='-Duser.timezone=Africa/Windhoek'
+          SPRING_PROFILES_ACTIVE='server'
+          SPRING_DATASOURCE_USERNAME='rental_user'
+          SPRING_DATASOURCE_PASSWORD='${{ secrets.POSTGRES_PASSWORD }}'
+          ENVEOF
+            chmod 600 app.env
+
+            echo "=== Building Java application on Droplet ==="
+            chmod +x ./mvnw
+            ./mvnw -Dmaven.repo.local='${{ env.DEPLOY_DIR }}/.m2' -DskipTests package
+
+            JAR_PATH="$(find target -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' ! -name '*-javadoc.jar' | head -n 1)"
+            if [ -z "$JAR_PATH" ]; then
+              echo "No runnable jar found in target/"
+              exit 1
+            fi
+
+            install -m 755 "$JAR_PATH" '${{ env.DEPLOY_DIR }}/${{ env.APP_NAME }}.jar'
+            install -m 644 src/main/resources/opentelemetry-jar/grafana-opentelemetry-java.jar '${{ env.DEPLOY_DIR }}/grafana-opentelemetry-javaagent.jar'
+
+            PID_FILE='${{ env.DEPLOY_DIR }}/${{ env.APP_NAME }}.pid'
+            LOG_FILE='${{ env.DEPLOY_DIR }}/logs/${{ env.APP_NAME }}.log'
+            AGENT_PATH='${{ env.DEPLOY_DIR }}/grafana-opentelemetry-javaagent.jar'
+            mkdir -p "$(dirname "$LOG_FILE")"
+            touch "$LOG_FILE"
+
+            if [ -f "$PID_FILE" ]; then
+              OLD_PID="$(cat "$PID_FILE")"
+              if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+                echo "Stopping existing application process $OLD_PID"
+                kill "$OLD_PID"
+                for attempt in {1..30}; do
+                  if ! kill -0 "$OLD_PID" 2>/dev/null; then
+                    break
+                  fi
+                  sleep 1
+                done
+                if kill -0 "$OLD_PID" 2>/dev/null; then
+                  kill -9 "$OLD_PID"
+                fi
+              fi
+              rm -f "$PID_FILE"
+            fi
+
+            if command -v logrotate >/dev/null 2>&1; then
+              cat > /tmp/${{ env.APP_NAME }}.logrotate << LOGROTATEEOF
+          $LOG_FILE {
+              daily
+              rotate 14
+              missingok
+              notifempty
+              compress
+              dateext
+              copytruncate
+          }
+          LOGROTATEEOF
+              if [ "$(id -u)" -eq 0 ]; then
+                install -m 644 /tmp/${{ env.APP_NAME }}.logrotate /etc/logrotate.d/${{ env.APP_NAME }}
+              elif command -v sudo >/dev/null 2>&1; then
+                sudo install -m 644 /tmp/${{ env.APP_NAME }}.logrotate /etc/logrotate.d/${{ env.APP_NAME }}
+              else
+                echo "logrotate config was not installed: sudo is unavailable"
+              fi
+              rm -f /tmp/${{ env.APP_NAME }}.logrotate
+            else
+              echo "logrotate is not installed; install it to rotate $LOG_FILE daily"
+            fi
+
+            set -a
+            . ./app.env
+            set +a
+
+            echo "Starting application"
+            nohup java \
+              -javaagent:"$AGENT_PATH" \
+              -Dspring.profiles.active=server \
+              -Dotel.resource.attributes=deployment.environment=production \
+              -jar '${{ env.DEPLOY_DIR }}/${{ env.APP_NAME }}.jar' >> "$LOG_FILE" 2>&1 &
+            echo $! > "$PID_FILE"
+          EOF
